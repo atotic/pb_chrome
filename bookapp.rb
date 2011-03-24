@@ -9,6 +9,8 @@ require 'dm-validations'
 require 'dm-core'
 require 'dm-migrations'
 
+require 'book_model'
+
 class ColorLogger < Logger
   def initialize()
     super(STDOUT)
@@ -24,58 +26,6 @@ class ColorLogger < Logger
   end
 end
 
-class Book
-  include DataMapper::Resource
-  
-  property :id,           Serial 
-  property :title,        String,   :required => true
-  property :template_id,  String
-  
-  validates_with_method :template_id, :method => :check_book_template
-  
-  def to_json
-    self.attributes.to_json
-  end
-  
-  def check_book_template
-    return [false, "Book template can't be blank"] unless self.template_id
-    t = BookTemplate.new({:style => self.template_id})
-    return [false, t.error] if t.error
-    true
-  end
-  
-end
-
-# Holds information about a book template
-class BookTemplate
-  
-  def initialize(attrs)
-    @style = attrs[:style] if attrs
-    @style ||= "6x6"
-    folder = File.join(BookApp.templates, @style)
-    unless File.exist?(folder)
-      @error = "Book template #{@style} does not exist.";
-    else
-      begin
-         data = YAML::load_file(folder.join('book.yml'))
-         @width = data["width"]
-         @height = data["height"]
-       rescue => e
-         @error = e.message
-       end
-     end    
-  end
-
-  def error
-    @error
-  end
-  
-  def initialize_book(book)
-      book.template_id = @style
-  end
-
-end
-
 DataMapper.finalize
 DataMapper::Logger.new(STDOUT, :debug)
 DataMapper::Model.raise_on_save_failure = true
@@ -89,7 +39,8 @@ class BookApp < Sinatra::Base
   set :logging, true
   set :root, File.dirname(__FILE__)
   set :templates, File.join(settings.root, "templates");
-  
+
+
   helpers do
     include Rack::Utils
     alias_method :h, :escape_html
@@ -130,6 +81,13 @@ class BookApp < Sinatra::Base
     erb :book_new
   end
 
+  get '/books/:id' do
+    debugger
+    @book = Book.get(params[:id])
+    content_type :json
+    @book.to_json()
+  end
+  
   post '/books' do
     @template = BookTemplate.new(params[:template])
     @book = Book.new(params[:book])
@@ -137,13 +95,14 @@ class BookApp < Sinatra::Base
     if @book.valid? && @book.save
       self.flash_notice= "Book successfully created."
       content_type :json
-      { :id => @book.id }
+      "{ \"id\" : #{@book.id} }"
     else
       self.flash_error= "Book was not created"
       [400, erb(:book_new)]
     end
   end
   
+  require "sinatra/reloader" if development?
   run! if app_file == nil
 
 end
