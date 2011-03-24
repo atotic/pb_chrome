@@ -8,8 +8,11 @@ require 'json'
 require 'dm-validations'
 require 'dm-core'
 require 'dm-migrations'
+require 'dm-transactions'
 
 require 'book_model'
+
+require 'ruby-debug'
 
 class ColorLogger < Logger
   def initialize()
@@ -59,6 +62,13 @@ class BookApp < Sinatra::Base
     
   end
   
+  require "sinatra/reloader" if development?
+
+  configure(:development) do
+    register Sinatra::Reloader
+    also_reload "book_model.rb"
+  end
+  
   after do 
     headers({"X-FlashError" => @flash_error}) if @flash_error
     headers({"X-FlashNotice" => @flash_notice}) if @flash_notice
@@ -77,32 +87,33 @@ class BookApp < Sinatra::Base
   end
 
   get '/books/new' do
-    @book = Book.new
+    @book = Book.new({}, {})
     erb :book_new
   end
 
   get '/books/:id' do
-    debugger
     @book = Book.get(params[:id])
     content_type :json
     @book.to_json()
   end
   
   post '/books' do
-    @template = BookTemplate.new(params[:template])
-    @book = Book.new(params[:book])
-    @template.initialize_book(@book)
-    if @book.valid? && @book.save
-      self.flash_notice= "Book successfully created."
-      content_type :json
-      "{ \"id\" : #{@book.id} }"
-    else
-      self.flash_error= "Book was not created"
+    begin
+      Book.transaction do |t|
+        @book = Book.new(params[:book], params[:template])
+        @book.init_from_template
+        self.flash_notice= "Book successfully created."
+        content_type :json
+        "{ \"id\" : #{@book.id} }"
+      end
+    rescue => ex
+      BookApp.logger.error(ex.message)
+      self.flash_error= "Errors prevented the book from being saved. Please fix them and try again."
       [400, erb(:book_new)]
     end
   end
   
-  require "sinatra/reloader" if development?
+
   run! if app_file == nil
 
 end
