@@ -62,11 +62,11 @@ class BookApp < Sinatra::Base
     
   end
   
-  require "sinatra/reloader" if development?
+#  require "sinatra/reloader" if development?
 
   configure(:development) do
-    register Sinatra::Reloader
-    also_reload "book_model.rb"
+#   register Sinatra::Reloader
+#    also_reload "book_model.rb"
   end
   
   after do 
