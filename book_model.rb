@@ -98,12 +98,10 @@ class BookTemplate
   def initialize(attrs)
     @style = attrs[:style] if attrs
     @style ||= "6x6"
-    folder = File.join(BookApp.templates, @style)
-    unless File.exist?(folder)
-      @error = "Book template #{@style} does not exist.";
-    else
+    f = self.folder
+    unless @error
       begin
-         data = YAML::load_file(File.join(folder, 'book.yml'))
+         data = YAML::load_file(File.join(f, 'book.yml'))
          @width = data["width"]
          @height = data["height"]
        rescue => e
@@ -113,9 +111,9 @@ class BookTemplate
   end
   
   def folder
-    folder = File.join(BookApp.templates, @style)
-    @error = "Book template #{@style} does not exist." unless File.exist?(folder)
-    folder
+    f = File.join(BookApp.templates, @style)
+    @error = "Book template #{@style} does not exist." unless File.exist?(f)
+    f
   end
   
   def get_default_pages
