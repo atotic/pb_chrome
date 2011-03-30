@@ -1,119 +1,154 @@
 require 'rubygems'
 require 'sinatra/base'
 require 'erb'
-
 require 'logger'
 require 'json'
-
 require 'dm-validations'
 require 'dm-core'
 require 'dm-migrations'
 require 'dm-transactions'
-
+require 'data_objects'
 require 'book_model'
-
 require 'ruby-debug'
 
+STDERR.write "hello err"
+STDOUT.write "hello out"
+
 class ColorLogger < Logger
-  def initialize()
-    super(STDOUT)
-    self.datetime_format = ""
-  end
-  
-  def warn(msg)
-    printf STDOUT, "\033[33m";super;printf STDOUT, "\033[0m"
-  end
-  
-  def error(msg)
-    printf STDOUT, "\033[31m";super;printf STDOUT, "\033[0m"
-  end
+	def initialize()
+		super(STDOUT)
+		self.datetime_format = ""
+	end
+
+	def warn(msg)
+		printf STDOUT, "\033[33m";super;printf STDOUT, "\033[0m"
+	end
+
+	def error(msg)
+		printf STDOUT, "\033[31m";super;printf STDOUT, "\033[0m"
+	end
 end
 
-DataMapper.finalize
-DataMapper::Logger.new(STDOUT, :debug)
+class BookAppLogger
+	FORMAT = %{ %s"%s %s%s %s" %s %0.4f\n}
+	def initialize(app)
+		@app = app
+		@logger = STDERR
+	end
+
+	def call(env)
+		began_at = Time.now
+		status, header, body = @app.call(env)
+		header = Rack::Utils::HeaderHash.new(header)
+		log(env, status, header, began_at)
+		[status, header, body]
+	end
+
+	def log(env, status, header, began_at)
+		now = Time.now
+
+		logger = @logger || env['rack.errors']
+		return if env['sinatra.static_file']
+		STDERR.write "HTTP ERROR" if status >= 400
+		logger.write FORMAT % [
+			env["REMOTE_USER"] || "-",
+			env["REQUEST_METHOD"],
+			env["PATH_INFO"],
+			env["QUERY_STRING"].empty? ? "" : "?"+env["QUERY_STRING"],
+			env["HTTP_VERSION"],
+			status.to_s[0..3],
+			now - began_at ]
+	end
+end
+
+LOGGER = ColorLogger.new
+
+DataMapper::Logger.new(STDERR, :debug, "~", true)
+DataObjects::Logger.new(STDERR, :debug, "~", true)
+
 DataMapper::Model.raise_on_save_failure = true
-# Use either the default Heroku database, or a local sqlite one for development 
+# Use either the default Heroku database, or a local sqlite one for development
 DataMapper.setup(:default, ENV['DATABASE_URL'] || "sqlite::memory:")
+DataMapper.finalize
 DataMapper.auto_upgrade!
 
 class BookApp < Sinatra::Base
- 
-  set :logger, ColorLogger.new
-  set :logging, true
-  set :root, File.dirname(__FILE__)
-  set :templates, File.join(settings.root, "templates");
 
+	set :root, File.dirname(__FILE__)
+	set :templates, File.join(settings.root, "templates");
 
-  helpers do
-    include Rack::Utils
-    alias_method :h, :escape_html
+#	set :logging, true
+	set :show_exceptions, true
 
-    def flash_notice=(msg)
-      @flash_notice = msg
-    end
+	helpers do
+		include Rack::Utils
+		alias_method :h, :escape_html
+		def flash_notice=(msg)
+			@flash_notice = msg
+		end
 
-    def flash_error=(msg)
-      @flash_error = msg
-    end
-    
-    def show_error(object, prop)
-      "<span class=\"error_message\">#{object.errors[prop]}</span>" if (object.errors[prop])
-    end
-    
-  end
-  
-#  require "sinatra/reloader" if development?
+		def flash_error=(msg)
+			@flash_error = msg
+		end
 
-  configure(:development) do
-#   register Sinatra::Reloader
-#    also_reload "book_model.rb"
-  end
-  
-  after do 
-    headers({"X-FlashError" => @flash_error}) if @flash_error
-    headers({"X-FlashNotice" => @flash_notice}) if @flash_notice
-  end
+		def show_error(object, prop)
+			"<span class=\"error_message\">#{object.errors[prop]}</span>" if (object.errors[prop])
+		end
 
-  #
-  # CONTROLLER METHODS
-  #
+	end
 
-  get '/' do
-    'Hello world!'
-  end
+	#  require "sinatra/reloader" if development?
 
-  get '/editor' do
-    erb :editor
-  end
+	configure(:development) do
+	#   register Sinatra::Reloader
+	#    also_reload "book_model.rb"
+	end
 
-  get '/books/new' do
-    @book = Book.new({}, {})
-    erb :book_new
-  end
+	after do
+		headers({"X-FlashError" => @flash_error}) if @flash_error
+		headers({"X-FlashNotice" => @flash_notice}) if @flash_notice
+	end
 
-  get '/books/:id' do
-    @book = Book.get(params[:id])
-    content_type :json
-    @book.to_json()
-  end
-  
-  post '/books' do
-    begin
-      Book.transaction do |t|
-        @book = Book.new(params[:book], params[:template])
-        @book.init_from_template
-        self.flash_notice= "Book successfully created."
-        content_type :json
-        "{ \"id\" : #{@book.id} }"
-      end
-    rescue => ex
-      BookApp.logger.error(ex.message)
-      self.flash_error= "Errors prevented the book from being saved. Please fix them and try again."
-      [400, erb(:book_new)]
-    end
-  end
-  
+	#
+	# CONTROLLER METHODS
+	#
 
-  run! if app_file == nil
+	get '/' do
+		'Hello world!'
+	end
+
+	get '/editor' do
+		erb :editor
+	end
+
+	get '/books/new' do
+		@book = Book.new({}, {})
+		erb :book_new
+	end
+
+	get '/books/:id' do
+		@book = Book.get(params[:id])
+		content_type :json
+		@book.to_json()
+	end
+
+	post '/books' do
+		begin
+			Book.transaction do |t|
+				@book = Book.new(params[:book], params[:template])
+				@book.init_from_template
+				content_type :json
+				"{ \"id\" : #{@book.id} }"
+			end
+		rescue => ex
+			debugger
+			BookApp.logger.error(ex.message)
+			self.flash_error= "Errors prevented the book from being saved. Please fix them and try again."
+			[400, erb(:book_new)]
+		end
+	end
+
+	use BookAppLogger
+	run! if app_file == nil
 
 end
