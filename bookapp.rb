@@ -68,9 +68,11 @@ DataObjects::Logger.new(STDERR, :debug, "~", true)
 
 DataMapper::Model.raise_on_save_failure = true
 # Use either the default Heroku database, or a local sqlite one for development
-DataMapper.setup(:default, ENV['DATABASE_URL'] || "sqlite::memory:")
+DataMapper.setup(:default, ENV['DATABASE_URL'] || "sqlite3://#{Dir.pwd}/development.db")
 DataMapper.finalize
 DataMapper.auto_upgrade!
+# hack to try to keep our database from disappearing
+# Book.repository().adapter().send(:open_connection)
 
 class BookApp < Sinatra::Base
 
@@ -141,8 +143,7 @@ class BookApp < Sinatra::Base
 				"{ \"id\" : #{@book.id} }"
 			end
 		rescue => ex
-			debugger
-			BookApp.logger.error(ex.message)
+			LOGGER.error(ex.message)
 			self.flash_error= "Errors prevented the book from being saved. Please fix them and try again."
 			[400, erb(:book_new)]
 		end
