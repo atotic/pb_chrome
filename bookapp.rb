@@ -3,16 +3,16 @@ require 'sinatra/base'
 require 'erb'
 require 'logger'
 require 'json'
+require 'base64'
 require 'dm-validations'
 require 'dm-core'
 require 'dm-migrations'
 require 'dm-transactions'
 require 'data_objects'
-require 'book_model'
+
 require 'ruby-debug'
 
-STDERR.write "hello err"
-STDOUT.write "hello out"
+require 'book_model'
 
 class ColorLogger < Logger
 	def initialize()
@@ -29,7 +29,7 @@ class ColorLogger < Logger
 	end
 end
 
-class BookAppLogger
+class SvegLogger
 	FORMAT = %{ %s"%s %s%s %s" %s %0.4f\n}
 	def initialize(app)
 		@app = app
@@ -63,6 +63,67 @@ end
 
 LOGGER = ColorLogger.new
 
+class Session
+
+	attr_reader :save_on_server
+	attr_reader :user_id
+	
+	def self.from_cookie(cookie)
+		return self.new(cookie)
+	end
+	
+	def initialize(cookie)
+		@save_on_server = false
+		@expires = Time.now + 60
+		@user_id = nil;
+		if cookie
+			begin 
+				h = Marshal.load(Base64.decode64(cookie))
+				@user_id = h[:id]
+			rescue
+				LOGGER.error("Error decoding cookie #{cookie}")
+			end
+		end
+	end
+	
+	def to_cookie_hash
+		{
+			:path => '/',
+			:httponly => true,
+			:expires => @expires,
+			:value => Base64.encode64(Marshal.dump(
+				{:id => @user_id}
+			))
+		}
+	end
+	
+end
+
+class SessionMiddleware
+	def initialize(app, options={})
+		@app = app;
+		@key = "munch"
+	end
+
+	def call(env)
+		load_session(env)
+		status, headers, body = @app.call(env)
+		save_session(env, headers)
+	end
+	
+	def load_session(env)
+		request = Rack::Request.new(env)
+		session_data = request.cookies[@key]
+		env["rack.session"] = Session.from_cookie(session_data)
+	end
+	
+	def save_session(env, headers)
+		if env["rack.session"].dirty
+			Rack::Utils.set_cookie_header!(headers, @key, env["rack.session"].to_cookie_hash)
+		end
+	end
+end
+
 DataMapper::Logger.new(STDERR, :debug, "~", true)
 DataObjects::Logger.new(STDERR, :debug, "~", true)
 
@@ -71,15 +132,17 @@ DataMapper::Model.raise_on_save_failure = true
 DataMapper.setup(:default, ENV['DATABASE_URL'] || "sqlite3://#{Dir.pwd}/development.db")
 DataMapper.finalize
 DataMapper.auto_upgrade!
-# hack to try to keep our database from disappearing
-# Book.repository().adapter().send(:open_connection)
 
-class BookApp < Sinatra::Base
+
+#
+# Main application
+#
+class SvegApp < Sinatra::Base
 
 	set :root, File.dirname(__FILE__)
 	set :templates, File.join(settings.root, "templates");
 
-#	set :logging, true
+#	set :logging, true - we are doing our own logging via LOGGER
 	set :show_exceptions, true
 
 	helpers do
@@ -149,7 +212,17 @@ class BookApp < Sinatra::Base
 		end
 	end
 
-	use BookAppLogger
+	get '/auth/login'
+		erb :login
+	end
+	
+	post '/auth/login'
+	end
+
+# setup & run	
+	use SvegLogger
+	use SessionMiddleware
+
 	run! if app_file == nil
 
 end

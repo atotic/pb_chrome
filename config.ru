@@ -1,3 +1,3 @@
 # config.ru
 require 'sinbook'
-run BookApp
+run SvegApp

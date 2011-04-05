@@ -111,7 +111,7 @@ class BookTemplate
   end
   
   def folder
-    f = File.join(BookApp.templates, @style)
+    f = File.join(SvegApp.templates, @style)
     @error = "Book template #{@style} does not exist." unless File.exist?(f)
     f
   end
