@@ -1,3 +1,3 @@
 # config.ru
-require 'sinbook'
+require 'sveg'
 run SvegApp
