@@ -1,17 +1,23 @@
 require 'dm-validations'
 require 'dm-core'
 require 'dm-migrations'
-
+require 'dm-timestamps'
 require 'json'
+
+require 'model/user'
 
 class Book
   include DataMapper::Resource
   
   property :id,           Serial 
+	property :created_at,		DateTime
+	property :updated_at,		DateTime
+	
   property :title,        String,   :required => true
   property :template_attributes,   Text
   property :template_id,  String
 
+	belongs_to :user
   has n, :pages, 'BookPage'
   
   validates_with_method :template_attributes, :method => :validate_template_attributes
@@ -26,9 +32,10 @@ class Book
     case
     when args.length == 0
       super({})
-    when args.length == 2
-      super(args[0])
-      self.template_attributes = args[1].to_json
+    when args.length == 3
+      super(args[1])
+      self.user = args[0]
+      self.template_attributes = args[2].to_json
     end
   end
   
@@ -72,6 +79,9 @@ class BookPage
   include DataMapper::Resource
   
   property :id,           Serial 
+	property :created_at,		DateTime
+	property :updated_at,		DateTime
+
   property :html,         Text, :lazy => false
   property :width,        String
   property :height,       String
