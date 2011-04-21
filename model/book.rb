@@ -5,6 +5,7 @@ require 'dm-timestamps'
 require 'json'
 
 require 'model/user'
+require 'model/photo'
 
 class Book
   include DataMapper::Resource
@@ -19,6 +20,7 @@ class Book
 
 	belongs_to :user
   has n, :pages, 'BookPage'
+  has n, :photos, :through => Resource
   
   validates_with_method :template_attributes, :method => :validate_template_attributes
   
@@ -26,7 +28,7 @@ class Book
   
   #
   # *args are either:
-  # [ {attributes}, {template_attributes}]
+  # [ user, {attributes}, {template_attributes}]
   # or [] for default book
   def initialize(*args)
     case

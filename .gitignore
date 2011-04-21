@@ -1,5 +1,7 @@
 .loadpath
 .project
 debug.rc
-development.db
+development.sqlite
+photo-storage
+apps
 docs/StackOverflowLogin.tiff

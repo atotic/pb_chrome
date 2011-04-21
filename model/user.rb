@@ -16,6 +16,7 @@ class User
  	property :is_administrator,   Boolean, :default => false
 
 	has n, :books
+	has n, :photos
 end
 
 #
