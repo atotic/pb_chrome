@@ -45,7 +45,8 @@ class Book
     {
       :id => self.id,
       :title => self.title,
-      :pages => self.pages.to_a
+      :pages => self.pages.to_a,
+      :photos => self.photos.to_a
     }.to_json(*a)
   end
   

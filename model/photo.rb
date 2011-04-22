@@ -32,8 +32,8 @@ class Photo
     }.to_json(*a)
 	end
 
-	def filePath()
-		File.join(SvegApp.photo_dir, photo.user_id, self.storage)
+	def file_path()
+		File.join(PhotoStorage.get_user_dir(self), self.storage)
 	end
 	
 	before :destroy do |photo|
@@ -46,7 +46,7 @@ end
 class PhotoStorage
 	# stores the uploaded file, and updates
 	
-	def self.getUserDir(photo)
+	def self.get_user_dir(photo)
 		dir = File.join(SvegApp.photo_dir, photo.user_id.to_s)
 		FileUtils.mkdir_p(dir)
 		dir
@@ -54,7 +54,7 @@ class PhotoStorage
 	
 	def self.storeFile(photo, file_param)
 		photo.save
-		dir = self.getUserDir(photo)
+		dir = self.get_user_dir(photo)
 		ext = File.extname( photo.display_name )
 		ext = ".img" unless [".jpg", ".gif", ".png"].index(ext)
 		destName = photo.id.to_s + ext
@@ -66,9 +66,8 @@ class PhotoStorage
 	end
 	
 	def self.destroyFile(photo)
-		fileName = File.join(self.getUserDir(photo), photo.storage)
 		begin
-			File.delete(fileName)
+			File.delete(photo.file_path())
 			photo.storage = ""
 			photo.md5 = ""
 			LOGGER.info("photo file deleted")
@@ -76,4 +75,5 @@ class PhotoStorage
 			LOGGER.error "Could not destroy file #{fileName} " + ex.message
 		end
 	end
+	
 end
