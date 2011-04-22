@@ -36,6 +36,10 @@ class Photo
 		File.join(PhotoStorage.get_user_dir(self), self.storage)
 	end
 	
+	def url()
+		"/photo/" + self.id.to_s
+	end
+	
 	before :destroy do |photo|
 		PhotoStorage.destroyFile photo
 	end

@@ -41,6 +41,20 @@ class Book
     end
   end
   
+  # manual removal of all associations
+  before :destroy do |book|
+  	book.pages.each do | page|
+  		page.destroy
+  	end
+  	book.photos.each do |photo|
+  		# destroy photos if we are the only book
+  		photo.destroy if photo.books.count == 1
+  	end
+  	book.book_photos.each do |bp|
+  		bp.destroy
+  	end
+	end
+	
   def to_json(*a)
     {
       :id => self.id,
