@@ -17,7 +17,8 @@ class Book
   property :title,        String,   :required => true
   property :template_attributes,   Text
   property :template_id,  String
-
+	property :pdf_location,	String
+	
 	belongs_to :user
   has n, :pages, 'BookPage'
   has n, :photos, :through => Resource
@@ -90,6 +91,10 @@ class Book
     self.save
   end
   
+  def pdf_path
+  	self.pdf_location
+  end
+
 end
 
 class BookPage
