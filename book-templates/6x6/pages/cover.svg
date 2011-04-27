@@ -5,6 +5,5 @@
 	<rect x="10" y="10" height="2in" width="3in" fill="transparent"
 	          style="stroke:#000"
 	          class="book_image"/>
-	<image x="10" y="200" width="100" height="100" xlink:href="/images/rails.png"/>
 	<text x="10" y="300">Cover page!</text>
 </svg>
