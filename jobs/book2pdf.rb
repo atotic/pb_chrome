@@ -1,6 +1,7 @@
 require "model/book"
 require "fileutils"
 
+# Create PDF file for a book
 class BookToPdf
 	
 	def get_book_dir(book)
@@ -29,6 +30,28 @@ class BookToPdf
 		split.join
 	end
 	
+	def get_cmd_export_pdf(svg_file, pdf_file)
+# /Applications/Inkscape.app/Contents/Resources/bin/inkscape --export-ignore-filters -A page1.pdf page1.svg
+		cmd_line = '/Applications/Inkscape.app/Contents/Resources/bin/inkscape '
+		cmd_line << '--export-ignore-filters '
+		cmd_line << "-A #{pdf_file} "
+		cmd_line << svg_file
+		cmd_line
+	end
+	
+	def get_cmd_merge_pdf(book_pdf, pdf_files)
+		cmd_line = "/System/Library/Automator/Combine\\ PDF\\ Pages.action/Contents/Resources/join.py "
+		cmd_line << "-o #{book_pdf} "
+		pdf_files.each do |pdf|
+			cmd_line << pdf << " "
+		end		
+		cmd_line
+	end
+	
+	def create_book_dirs(book)
+		
+	end
+	
 	def process(book_id)
 		start_at = Time.now
 		book = Book.get(book_id)
@@ -45,9 +68,10 @@ class BookToPdf
 		book.photos.each do |photo| 
 			FileUtils.cp(photo.file_path(), photo_dir)
 		end
+
 		# create the html files
 		i = 0
-		index = ""
+		index = "<html><head><title>#{book.title}</title></head><body>"
 		svg_files = []
 		book.pages.each do |page|
 			i += 1
@@ -61,36 +85,28 @@ class BookToPdf
 			index << "<li><a href='#{name}'>#{name}</a>"
 			svg_files << f.path
 		end
+
 		# generate index.html just for fun
-		header = "<html><head><title>#{book.title}</title></head><body>"
-		footer = "</body>"
 		f = File.new(File.join(book_dir,"index.html"), "w")
-		f.print header, index, footer
+		f.print header, index, "</body>"
 		f.close()
+
 		# create a PDF for every SVG
 		pdf_files = []
 		LOGGER.info "Creating PDFs"
 		svg_files.each do |svg_file|
-# /Applications/Inkscape.app/Contents/Resources/bin/inkscape --export-ignore-filters -A page1.pdf page1.svg
 			pdf_name = File.join(pdf_dir, File.basename(svg_file).sub(".svg", ".pdf"))
 			pdf_files << pdf_name
-			cmd_line = '/Applications/Inkscape.app/Contents/Resources/bin/inkscape '
-			cmd_line << '--export-ignore-filters '
-			cmd_line << "-A #{pdf_name} "
-			cmd_line << svg_file
+			cmd_line = self.get_cmd_export_pdf(svg_file, pdf_name)
 			success = Kernel.system cmd_line
 			raise ("PDF generator crashed " + $?.to_s) unless success
 		end
 		# merge the pdfs
 		book_pdf = File.join(book_dir, "book.pdf")
-		cmd_line = "/System/Library/Automator/Combine\\ PDF\\ Pages.action/Contents/Resources/join.py "
-		cmd_line << "-o #{book_pdf} "
-		pdf_files.each do |pdf|
-			cmd_line << pdf << " "
-		end
+		cmd_line = self.get_cmd_merge_pdf(book_pdf, pdf_files)
 		success = Kernel.system cmd_line
 		raise ("PDF join crashed " + $?.to_s) unless success
-		# save in pdf location
+		# mark it in the book
 		book.pdf_location = book_pdf
 		book.save!
 		LOGGER.info("PDF generation took " + (Time.now - start_at).to_s)
