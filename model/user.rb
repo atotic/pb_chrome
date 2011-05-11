@@ -24,6 +24,8 @@ end
 # each auth instance represents a login via corresponding service
 # 
 
+# AuthLogin is a simple username/pw login in theory
+# For now, it is just username.
 class AuthLogin
 	include DataMapper::Resource
 	
@@ -31,9 +33,21 @@ class AuthLogin
 	property :created_at,		DateTime
 	property :updated_at,		DateTime
 	
+	belongs_to :user
+
 	# common auth properties
-	property :user_id,			Integer		# pointer to User record
+#	property :user_id,			Integer		# pointer to User record
 	property :created_on,		DateTime, :default => lambda { |r,p| Time.now }
 	property :last_login,		DateTime, :default => lambda { |r,p| Time.now }
+
+	# creates login
+	def self.create(login_id)
+		user = User.new({:display_name => login_id})
+		user.is_administrator = true if login_id.eql? "atotic"
+		user.save
+		auth = AuthLogin.new({:login_id => login_id, :user_id => user.id} )
+		auth.save
+		auth
+	end
 
 end
