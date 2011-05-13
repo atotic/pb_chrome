@@ -6,3 +6,6 @@ photo-storage
 pdf-books
 apps
 docs/StackOverflowLogin.tiff
+test/test.sqlite
+test/photo-storage
+
