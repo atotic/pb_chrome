@@ -83,7 +83,7 @@ class PhotoStorage
 	def self.storeFile(photo, file_path)
 		photo.save
 		dir = self.get_user_dir(photo)
-		ext = File.extname( photo.display_name )
+		ext = File.extname( photo.display_name ).downcase
 		ext = ".img" unless [".jpg", ".gif", ".png"].index(ext)
 		destName = photo.id.to_s + ext
 		dest = File.join(dir, destName)
