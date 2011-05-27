@@ -171,7 +171,7 @@ class PageTemplate
     data = YAML::load_file(file_name)
     @width = data["width"] || book_folder.width
     @height = data["height"] || book_folder.height
-    @html = IO.read(File.join(book_template.folder(), "pages", template_id + ".svg"))
+    @html = IO.read(File.join(book_template.folder(), "pages", template_id + ".html"))
   end
   
   def make_page()

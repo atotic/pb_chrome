@@ -10,16 +10,12 @@ class BookToPdf
 		dir
 	end
 	
-	# Fix image links
-	# Fix any other bugs in html exports
+	# Fix image links src="/photo/1?size=display" => src="photos/1.ext"
 	def fix_html(html)
-		# fix xlink namespace
-		html = html.sub( / xlink="http:\/\/www.w3.org\/1999\/xlink"/, " xmlns:xlink=\"http://www.w3.org/1999/xlink\"" )
-		# close image tags, and fix image links
-		split = html.split /(<image[^>]*>)/im
+		split = html.split /(<img[^>]*>)/im
 		split.each_index do |i|
 			# split image into components
-			match = split[i].match( /(<image[^>]*)(xlink:href=")(\/photo\/)(\d+)([^"]*)(.*)/ )
+			match = split[i].match( /(<img[^>]*)(src=")(\/photo\/)(\d+)([^"]*)(.*)/ )
 			if match
 				front, href, photo, image_id, size, back = match[1], match[2], match[3], match[4], match[5], match[6]
 				photo = "./photos/"
@@ -30,12 +26,36 @@ class BookToPdf
 		split.join
 	end
 	
-	def get_cmd_export_pdf(svg_file, pdf_file)
-# /Applications/Inkscape.app/Contents/Resources/bin/inkscape --export-ignore-filters -A page1.pdf page1.svg
-		cmd_line = '/Applications/Inkscape.app/Contents/Resources/bin/inkscape '
-		cmd_line << '--export-ignore-filters '
-		cmd_line << "-A #{pdf_file} "
-		cmd_line << svg_file
+	# converts css units to pixels ex: 6in => 432 
+	def convertToPixels(val)
+		return val.to_i unless val =~ /^(\d+)\s*(\w+)$/i
+		pixelConversion = {
+			"in" => 72,
+			"cm" => 28.35,
+			"mm" => 2.835,
+			"px" => 1,
+			"pt" => 1,
+			"pc" => 6
+		}
+		if pixelConversion.has_key? $~[2].downcase
+			val = pixelConversion[ $~[2].downcase ] * $~[1].to_f;
+		else
+			raise "Could not convert #{val}. Unknown unit"
+		end
+		val.to_i
+	end
+	
+	def get_cmd_export_pdf(html_file, pdf_file, width, height)
+# wkpdf -p custom:700x700  -m 0 0 0 0 --paginate false --source page1.html --output page1.pdf
+		width = convertToPixels(width)
+		height = convertToPixels(height)
+		cmd_line = "/usr/bin/wkpdf"
+		cmd_line << " --paper custom:#{width}x#{height}"
+		cmd_line << " --margins 0 0 0 0"
+		cmd_line << " --paginate false"
+		cmd_line << " --print-background"
+		cmd_line << " --source #{html_file}"
+		cmd_line << " --output #{pdf_file}"
 		cmd_line
 	end
 	
@@ -47,11 +67,7 @@ class BookToPdf
 		end		
 		cmd_line
 	end
-	
-	def create_book_dirs(book)
 		
-	end
-	
 	def process(book_id)
 		start_at = Time.now
 		book = Book.get(book_id)
@@ -72,32 +88,46 @@ class BookToPdf
 		# create the html files
 		i = 0
 		index = "<html><head><title>#{book.title}</title></head><body>"
-		svg_files = []
+		html_files = []
+		page_header = <<-eos
+    <html>
+    <head>
+    	<style type="text/css">
+    		body {
+    			margin: 0;
+    		}
+    	</style>
+    </head>
+    <body>
+  eos
 		book.pages.each do |page|
 			i += 1
-			name = "page" + i.to_s + ".svg"
+			name = "page" + i.to_s + ".html"
 			html = page.html
 			f = File.new(File.join(book_dir, name), "w")
 			# fix the html links
 			html = self.fix_html(page.html)		
-			f.print html
+			f.print page_header, html, "</body>"
 			f.close()
 			index << "<li><a href='#{name}'>#{name}</a>"
-			svg_files << f.path
+			html_files << f.path
 		end
 
 		# generate index.html just for fun
 		f = File.new(File.join(book_dir,"index.html"), "w")
-		f.print header, index, "</body>"
+		f.print index, "</body>"
 		f.close()
 
-		# create a PDF for every SVG
+		# create a PDF for every HTML
 		pdf_files = []
 		LOGGER.info "Creating PDFs"
-		svg_files.each do |svg_file|
-			pdf_name = File.join(pdf_dir, File.basename(svg_file).sub(".svg", ".pdf"))
+		html_files.each_index do |index|
+			html_file = html_files[index]
+			book_page = book.pages[index]
+			pdf_name = File.join(pdf_dir, File.basename(html_file).sub(".html", ".pdf"))
 			pdf_files << pdf_name
-			cmd_line = self.get_cmd_export_pdf(svg_file, pdf_name)
+			cmd_line = self.get_cmd_export_pdf(html_file, pdf_name, book_page.width, book_page.height)
+			LOGGER.info cmd_line
 			success = Kernel.system cmd_line
 			raise ("PDF generator crashed " + $?.to_s) unless success
 		end
