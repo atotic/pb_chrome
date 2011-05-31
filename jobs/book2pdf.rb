@@ -80,6 +80,8 @@ class BookToPdf
 		FileUtils.mkdir_p(photo_dir)
 		pdf_dir = File.join(book_dir, "pdf")
 		FileUtils.mkdir_p(pdf_dir)
+		# copy css
+		FileUtils.cp(File.join(SvegApp.templates, "print-sheet.css"), book_dir);
 		# copy the images
 		book.photos.each do |photo| 
 			FileUtils.cp(photo.file_path(), photo_dir)
@@ -90,16 +92,12 @@ class BookToPdf
 		index = "<html><head><title>#{book.title}</title></head><body>"
 		html_files = []
 		page_header = <<-eos
-    <html>
-    <head>
-    	<style type="text/css">
-    		body {
-    			margin: 0;
-    		}
-    	</style>
-    </head>
-    <body>
-  eos
+<html>
+<head>
+	<link href='print-sheet.css' rel='stylesheet' type='text/css' />
+</head>
+<body>
+eos
 		book.pages.each do |page|
 			i += 1
 			name = "page" + i.to_s + ".html"

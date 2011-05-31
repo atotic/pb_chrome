@@ -1,0 +1,7 @@
+body {
+	margin: 0;
+}
+
+.book-page * {
+	position: absolute;  /* book page elements are absolutely positioned by default */
+}
