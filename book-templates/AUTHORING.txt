@@ -1,0 +1,13 @@
+Page structure:
+div.#main-container 
+div.page-enclosure -- data page_id, page
+	div.book-page  | transform 
+		div.book-image | transform
+			img.actual-image
+
+
+.book-page * {
+	position: absolute;
+}
+
+- All elements inside book page are absolutely positioned by default

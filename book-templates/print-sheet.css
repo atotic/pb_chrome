@@ -5,3 +5,7 @@ body {
 .book-page * {
 	position: absolute;  /* book page elements are absolutely positioned by default */
 }
+
+.book-image {
+	overflow:hidden;
+}
