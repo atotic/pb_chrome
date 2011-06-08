@@ -13,3 +13,4 @@ div.page-enclosure -- data page_id, page
 - All elements inside book page are absolutely positioned by default
 - Pages are rendered onto pdf with webkit. If you use prefixed properties, make sure they
 are prefixed with -webkit-. Otherwise the pdf will not work.
+- do not use any html #ids in the template. Several versions of the template can occupy same html page 
