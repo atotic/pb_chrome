@@ -1,0 +1,39 @@
+<div style="width:512px;height:512px">
+<div style="position:relative">Sizing:
+<input style="position:relative" id="valstr"type="text" value="" size="60"><br>
+<button onclick="updatePlacement()">updatePlacement</button>
+</div>
+<div style="position:relative"><select style="position:relative" id="sizing" multiple onchange="updatePlacement()">
+	<option value="flex" selected>flex</option>
+	<option value="fixed">fixed</option>
+</select>
+Rotation:
+<select style="position:relative" id="rotate" multiple onchange="updatePlacement()">
+	<option value="rotate" selected>rotate</option>
+	<option value="norotate">norotate</option>
+</select>
+<br>
+AlignLeft:
+<select style="position:relative" id="align_left" multiple onchange="updatePlacement()">
+	<option value="align-left-center" selected>center</option>
+	<option value="align-left-start">start</option>
+	<option value="align-left-end">end</option>
+</select>
+AlignTop:
+<select style="position:relative" id="align_top" multiple onchange="updatePlacement()">
+	<option value="align-top-center" selected>center</option>
+	<option value="align-top-start">start</option>
+	<option value="align-top-end">end</option>
+</select>
+</div>
+<div style="position:absolute;top:200px;left:20px;width:50px;">
+	Images
+</div>
+<div class="book-image" 
+		style="position:absolute;top:200px;left:100px;width:150px;height:100px;"
+></div>
+<div class="book-image" 
+		style="position:absolute;top:200px;left:300px;width:100px;height:150px;"
+></div>
+
+</div>
