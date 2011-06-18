@@ -2,10 +2,14 @@ body {
 	margin: 0;
 }
 
-.book-page * {
-	position: absolute;  /* book page elements are absolutely positioned by default */
+.book-image {
+	position: absolute;
+	overflow:hidden;
 }
 
-.book-image {
-	overflow:hidden;
+.book-text {
+	position: absolute;
+	border: 1px solid transparent;
+	font-size: 12px;
+	height: auto;
 }
