@@ -7,6 +7,10 @@ body {
 	overflow:hidden;
 }
 
+.actual-image {
+	position: absolute;
+}
+
 .book-text {
 	position: absolute;
 	border: 1px solid transparent;
