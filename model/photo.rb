@@ -32,7 +32,7 @@ class Photo
     }.to_json(*a)
 	end
 
-	def file_path(*size_arg) # call with no args for full size, or specify size as 
+	def file_path(*size_arg) # call with no args for full size, or specify size as 'icon'|'display'
 		size = size_arg.length > 0 ? size_arg[0] : "";
 		size = size.to_s
 		# transform filename.jpg to filename_size.jpg
