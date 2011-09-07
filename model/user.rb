@@ -33,7 +33,7 @@ class AuthLogin
 	property :created_at,		DateTime
 	property :updated_at,		DateTime
 	
-	belongs_to :user
+	belongs_to :user	# user this authorization is for
 
 	# common auth properties
 #	property :user_id,			Integer		# pointer to User record

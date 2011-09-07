@@ -18,6 +18,7 @@ class Book
 	property :template_attributes,	 Text
 	property :template_id,	String
 	property :pdf_location,	String
+	property :page_order, String	# comma separated list of page ids.
 	
 	belongs_to :user
 	has n, :pages, 'BookPage'
@@ -61,7 +62,8 @@ class Book
 			:id => self.id,
 			:title => self.title,
 			:pages => self.pages.to_a,
-			:photos => self.photos.to_a
+			:photos => self.photos.to_a,
+			:page_order => self.page_order.split(",")
 		}.to_json(*a)
 	end
 	
@@ -70,8 +72,11 @@ class Book
 	end
 	
 	def validate_template_attributes
-		template = self.get_template
-		return [false, template.error] if template.error
+		begin
+			template = self.get_template
+		rescue => e
+			return [false, e.message]
+		end
 		true
 	end
 	
@@ -83,10 +88,17 @@ class Book
 	end
 
 	def init_from_template
-		self.save unless self.id	# we need to be saved before adding associated records
+		self.save unless self.id	# must be saved before adding associated records
 		t = self.get_template
 		t.get_default_pages.each do |page|
 			self.pages << page
+			page.save # id is created here
+			if self.page_order
+				self.page_order += ","
+			else
+				self.page_order = ""
+			end
+			self.page_order += page.id.to_s
 		end
 		self.save
 	end
@@ -127,25 +139,26 @@ class BookTemplate
 	attr_reader "width"
 	attr_reader "height"
 
+	def self.get(style) 
+		return BookTemplate.new({ "style" => style });
+	end
+	
 	def initialize(attrs)
 		@style = attrs["style"] if attrs
-		@style ||= "6x6"
 		f = self.folder
-		unless @error
-			begin
-				data = YAML::load_file(File.join(f, 'book.yml'))
-				@width = data["width"]
-				@height = data["height"]
-				@initialPages = data["initialPages"].split(',').collect! { |s| s.strip }
-			rescue => e
-				@error = e.message
-			end
-		end		
+		begin
+			data = YAML::load_file(File.join(f, 'book.yml'))
+			@width = data["width"]
+			@height = data["height"]
+			@initialPages = data["initialPages"].split(',').collect! { |s| s.strip }
+		rescue => e
+			raise "Error reading template book.yml file:" + e.message
+		end
 	end
 	
 	def folder
 		f = File.join(SvegApp.templates, @style)
-		@error = "Book template #{@style} does not exist." unless File.exist?(f)
+		raise "Book template #{@style} does not exist." unless File.exist?(f)
 		f
 	end
 	
@@ -153,8 +166,12 @@ class BookTemplate
 		@initialPages.collect { |name| PageTemplate.get(self, name).make_page() }
 	end
 
+	def get_asset_path(asset_name)
+		File.join(self.folder, "assets", asset_name);
+	end
 end
 
+# Book page template, holds HTML & yaml data
 class PageTemplate
 	
 	attr_reader "error"

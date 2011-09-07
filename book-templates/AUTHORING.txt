@@ -1,4 +1,20 @@
-Page structure:
+Book templates:
+Each template is stored inside a book-templates directory
+Template directory structure is:
+
+<template_name>
+  book.yml : book meta informatioin: size, title, initial pages, etc
+	/pages - page templates
+		page1.html - page html template
+		page1.yml - page meta information, size, type, icon
+	/assets - assets used by pages: images, css, js
+
+Assets:
+assets are css/js/images used by your book template
+assets are stored inside
+
+Page HTML structure:
+
 div.#main-container 
 div.page-enclosure -- data page_id, page
 	div.book-page  | transform 
@@ -6,9 +22,10 @@ div.page-enclosure -- data page_id, page
 			img.actual-image
   div.book-text
 
-- Pages are rendered onto pdf with webkit. If you use prefixed 
-  properties, make sure they are prefixed with -webkit- in your template. 
-  Otherwise the pdf will not work.
+- PDFs are generated from pages using webkit. If you use prefixed CSS
+  properties, make sure to include -webkit- prefix in your template. 
 
 - do not use any html #id attributes in the template. Multiple versions
-  of the template can occupy same html page 
+  of the template can occupy same html page. Id's will be assigned 
+  automatically to text and images after page creation.
+  
