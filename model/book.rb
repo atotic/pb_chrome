@@ -63,7 +63,7 @@ class Book
 			:title => self.title,
 			:pages => self.pages.to_a,
 			:photos => self.photos.to_a,
-			:page_order => self.page_order.split(",")
+			:page_order => self.page_order.split(",").map(|x| x.to_i)
 		}.to_json(*a)
 	end
 	
