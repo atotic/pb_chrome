@@ -7,6 +7,7 @@ require 'model/book'
 require 'fileutils'
 require 'digest/md5'
 
+module PB
 #
 # Photo represents photos in our system
 #
@@ -113,4 +114,6 @@ class PhotoStorage
 		LOGGER.info("photo file deleted")
 	end
 	
+end
+
 end

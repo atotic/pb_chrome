@@ -6,7 +6,10 @@ require 'json'
 
 require 'model/user'
 require 'model/photo'
+require 'model/book_template'
 
+module PB
+	
 class Book
 	include DataMapper::Resource
 	
@@ -131,69 +134,5 @@ class BookPage
 		}.to_json(*a)
 	end
 end
- 
-# Holds information about a book template
-class BookTemplate
-	
-	attr_reader "error"
-	attr_reader "width"
-	attr_reader "height"
-
-	def self.get(style) 
-		return BookTemplate.new({ "style" => style });
-	end
-	
-	def initialize(attrs)
-		@style = attrs["style"] if attrs
-		f = self.folder
-		begin
-			data = YAML::load_file(File.join(f, 'book.yml'))
-			@width = data["width"]
-			@height = data["height"]
-			@initialPages = data["initialPages"].split(',').collect! { |s| s.strip }
-		rescue => e
-			raise "Error reading template book.yml file:" + e.message
-		end
-	end
-	
-	def folder
-		f = File.join(SvegApp.templates, @style)
-		raise "Book template #{@style} does not exist." unless File.exist?(f)
-		f
-	end
-	
-	def get_default_pages
-		@initialPages.collect { |name| PageTemplate.get(self, name).make_page() }
-	end
-
-	def get_asset_path(asset_name)
-		File.join(self.folder, "assets", asset_name);
-	end
-end
-
-# Book page template, holds HTML & yaml data
-class PageTemplate
-	
-	attr_reader "error"
-
-	# get named template
-	def self.get(book_template, page_template)
-		self.new(book_template, page_template)
-	end
-	
-	def initialize(book_template, template_id)
-		file_name = File.join(book_template.folder(), "pages", template_id + ".yml")
-		data = YAML::load_file(file_name)
-		raise "Could not load yaml file #{file_name}" unless data
-		@width = data["width"] || book_folder.width
-		@height = data["height"] || book_folder.height
-		@html = IO.read(File.join(book_template.folder(), "pages", template_id + ".html"))
-	end
-	
-	def make_page()
-		BookPage.new({
-			:width => @width, :height => @height, :html => @html
-		})
-	end
 
 end

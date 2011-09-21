@@ -5,6 +5,8 @@ require 'dm-timestamps'
 
 require 'model/book'
 
+module PB
+	
 class User
   include DataMapper::Resource
   
@@ -49,5 +51,7 @@ class AuthLogin
 		auth.save
 		auth
 	end
+
+end
 
 end
