@@ -1,6 +1,8 @@
 require "model/book"
 require "fileutils"
 
+module PB
+	
 # Create PDF file for a book
 class BookToPdf
 	
@@ -139,4 +141,6 @@ eos
 		book.save!
 		LOGGER.info("PDF generation took " + (Time.now - start_at).to_s)
 	end
+end
+
 end
