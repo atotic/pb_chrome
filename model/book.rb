@@ -119,10 +119,11 @@ class BookPage
 	property :created_at,		DateTime
 	property :updated_at,		DateTime
 
-	property :html,				 Text, :lazy => false
-	property :width,				String
-	property :height,			 String
-	
+	property :html,					Text, :lazy => false
+	property :width,				String # css width units px|in|cm etc
+	property :height,				String # css width units
+	property :icon,					Text, :lazy => false # html icon
+
 	belongs_to :book
 	
 	def to_json(*a)
@@ -130,7 +131,8 @@ class BookPage
 			:id => self.id,
 			:width => self.width,
 			:height => self.height,
-			:html => self.html
+			:html => self.html,
+			:icon => self.icon
 		}.to_json(*a)
 	end
 end

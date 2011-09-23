@@ -58,22 +58,31 @@ class BookTemplate
 			.map { |x| PageTemplate.get(self, x.gsub(/\.html$/, "")) }
 	end
 	
-	def get_asset_path(asset_name)
+	# m[1] filename, m[2] ext
+	@@IMAGE_MATCH = /(.*)\.(jpg|png|gif|JPG|PNG|GIF)\Z/ 
+	# m[1] filename,m[2] display|icon, m[3] ext
+	@@DISPLAY_ICON_IMAGE_MATCH = /(.*)_(display|icon)\.(\w+)\Z/ #
+	
+	def get_asset_path(asset_name, size = nil)
+		unless size.nil?
+			m = @@IMAGE_MATCH.match(asset_name)
+			asset_name = m[1] + "_" + size + "." + m[2]
+		end
 		File.join(self.folder, "assets", asset_name);
 	end
 	
 	# array of asset file names
 	def get_image_assets
 		images = Dir.entries( self.assets_folder_name )\
-			.select { |x| ( x =~ /(.*).(jpg|gif|png)\Z/ ) != nil }\
-			.select { |x| ( x =~ /(_display|_icon)\.\w+\Z/ ) == nil }
+			.select { |x| ( x =~ @@IMAGE_MATCH) != nil }\
+			.select { |x| ( x =~ @@DISPLAY_ICON_IMAGE_MATCH ) == nil }
 		images
 	end
 	
 	# creates resized versions (_display & _icon) of assets
 	def multisize_image_assets
 		self.get_image_assets.each do |img| 
-			m = /(.*)\.(jpg|png|gif)/.match(img)
+			m = @@IMAGE_MATCH.match(img)
 			old_file_name = File.join(self.assets_folder_name, img)
 			new_file_name = File.join(self.assets_folder_name, m[1] + "_display." + m[2])
 			unless File.exists?(new_file_name)
@@ -92,8 +101,8 @@ class BookTemplate
 	
 	def clean_image_assets
 		images = Dir.entries( self.assets_folder_name )\
-			.select { |x| ( x =~ /(.*).(jpg|gif|png)\Z/ ) != nil }\
-			.select { |x| ( x =~ /(_display|_icon)\.\w+\Z/ ) != nil }
+			.select { |x| ( x =~ @@IMAGE_MATCH ) != nil }\
+			.select { |x| ( x =~ @@DISPLAY_ICON_IMAGE_MATCH ) != nil }
 		images.each do |img|
 			file_name = File.join(self.assets_folder_name, img)
 			File.delete(file_name) if File.exists?(file_name)
@@ -125,6 +134,8 @@ class PageTemplate
 		@width = data["width"] 
 		@height = data["height"]
 		@html = IO.read(self.html_file_name)
+		@icon = File.exists?(self.icon_file_name) ? IO.read(self.icon_file_name) :\
+		 "<div class='page-icon' style='width:128px;height:128px'><p>Default icon</p></div>"
 	end
 	
 	def icon_file_name
@@ -139,9 +150,22 @@ class PageTemplate
 		File.join(@book_template.folder(), "pages", @template_id + ".html")
 	end
 				
-	def make_page()
+	def make_page
+		doc = Nokogiri::HTML(@html)
+		# generate unique id's for all image/text nodes, and any other nodes that have an id
+		id_nodes = doc.xpath("//body/*[@id]")
+		['book-image', 'actual-image', 'book-text', 'actual-text'].each do |classname|
+			id_nodes = id_nodes | doc.xpath("//*[@class='#{classname}']")
+		end
+		id_nodes.each do |id_node|
+			id_node['id'] = rand(36**5).to_s(36) + (id_node['id']	|| "") # 5 character random id generation. Thanks, stackoverflow
+		end
+		html_with_id = doc.xpath("//body/div")[0].serialize(:save_with => Nokogiri::XML::Node::SaveOptions::NO_DECLARATION)
+		# select every element that has an id
+		# randomly change the id
+		# save the new html
 		BookPage.new({
-			:width => @width, :height => @height, :html => @html
+			:width => @width, :height => @height, :html => html_with_id, :icon => @icon
 		})
 	end
 	
