@@ -17,9 +17,16 @@ class BookTemplate
 	attr_reader :width
 	attr_reader :height
 	attr_reader :folder
+	attr_reader :style
 	
 	def self.get(style) 
 		return BookTemplate.new({ "style" => style });
+	end
+	
+	def self.all()
+		Dir.entries(SvegApp.templates)\
+			.select { |x| !x.start_with?(".") && File.directory?(File.join(SvegApp.templates, x)) }\
+			.map { |x| BookTemplate.get(x) }
 	end
 	
 	def initialize(attrs)
@@ -53,7 +60,7 @@ class BookTemplate
 	end
 
 	def get_all_pages
-		Dir.entries( self.pages_folder_name)\
+		Dir.entries(SvegApp.templates)\
 			.select { |x| x.end_with?(".html") && !x.end_with?("_icon.html") }\
 			.map { |x| PageTemplate.get(self, x.gsub(/\.html$/, "")) }
 	end
@@ -120,6 +127,7 @@ class PageTemplate
 	
 	attr_reader :template_id
 	attr_reader :book_template
+	attr_reader :icon
 	
 	# get named template
 	def self.get(book_template, page_template)
