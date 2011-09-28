@@ -60,7 +60,7 @@ class BookTemplate
 	end
 
 	def get_all_pages
-		Dir.entries(SvegApp.templates)\
+		Dir.entries(self.pages_folder_name)\
 			.select { |x| x.end_with?(".html") && !x.end_with?("_icon.html") }\
 			.map { |x| PageTemplate.get(self, x.gsub(/\.html$/, "")) }
 	end
