@@ -37,7 +37,7 @@ class BookTemplate
 			data = YAML::load_file(self.yml_file_name)
 			@width = data["width"]
 			@height = data["height"]
-			@initialPages = data["initialPages"].split(',').collect! { |s| s.strip }
+			@initialPages = data["initialPages"].split(' ').collect! { |s| s.strip }
 		rescue => e
 			raise "Error reading template book.yml file:" + e.message
 		end
@@ -125,10 +125,21 @@ class MalformedHTML < Exception; end
 # Book page template, holds HTML & yaml data
 class PageTemplate
 	
-	attr_reader :template_id
-	attr_reader :book_template
-	attr_reader :icon
+	attr_reader :template_id # page id. Derived from page template file <page_id>.html
+	attr_reader :book_template # Book template page belongs to
 	
+	attr_reader :width # width in css units
+	attr_reader :height # height in css units
+	attr_reader :icon # icon as html
+	attr_reader :page_position # where can page be positioned: middle|cover|flap|back
+	attr_reader :image_count # how many images are on the page
+	# :middle_style: photo|map|text etc used to sort pages in add dialog
+	# photo: standard photo page
+	# map: map
+	# text: text-only page
+	attr_reader :middle_style 
+	
+		
 	# get named template
 	def self.get(book_template, page_template)
 		self.new(book_template, page_template)
@@ -139,8 +150,14 @@ class PageTemplate
 		@template_id = template_id
 		data = YAML::load_file(self.yml_file_name)
 		raise "Could not load yaml file #{file_name}" unless data
-		@width = data["width"] 
+		
+		@width = data["width"] 	
 		@height = data["height"]
+		@page_position = data["page_position"] || "middle" 
+		@image_count = data["image_count"] || nil
+		@text_count = data["text_count"] || 0
+		@middle_style = data["middle_style"] || "photo"
+		
 		@html = IO.read(self.html_file_name)
 		@icon = File.exists?(self.icon_file_name) ? IO.read(self.icon_file_name) :\
 		 "<div class='page-icon' style='width:128px;height:128px'><p>Default icon</p></div>"
@@ -189,7 +206,7 @@ class PageTemplate
 		
 		# Step 1: parse all the information from the HTML template
 		def get_page_info(doc)
-			page_info = { :width => 0, :height => 0, :images => [] }
+			page_info = { :width => 0, :height => 0, :images => [], :text => [] }
 			# get page width/height from main div
 			page_div = doc.xpath("//body/div")[0]
 			raise MalformedHTML.new("Page template missing enclosing div") if page_div.nil?
@@ -209,7 +226,7 @@ class PageTemplate
 				img_info = {}
 				['top', 'left', 'width', 'height'].each { |prop| img_info[prop] = div_css_rule[prop].to_i }
 				# get img src
-				img_tags = div.xpath("//img[@class='actual-image']")
+				img_tags = div.xpath("img[@class='actual-image']")
 				if img_tags.empty? then
 					img_info['src'] = img_info['height'] > img_info['width'] ? "/assets/common/v1.jpg" : "/assets/common/h1.jpg"
 				else
@@ -218,6 +235,17 @@ class PageTemplate
 					img_info['src'] = img_tag["src"]		
 				end
 				page_info[:images].push(img_info)
+			end
+			
+			page_text_tags = doc.xpath("//div[@class='book-text']")
+			page_text_tags.each do |div|
+				div_css_rule = CssParser::RuleSet.new('div', div['style'])
+				raise MalformedHTML.new("<div class='book-text'> must have top/left/width defined in pixels")\
+				 unless div_css_rule["top"] && div_css_rule["left"] && div_css_rule["width"]
+				# get css position
+				text_info = {}
+				['top', 'left', 'width'].each { |prop| text_info[prop] = div_css_rule[prop].to_i }
+				page_info[:text].push(text_info)				
 			end
 			page_info
 		end
@@ -228,8 +256,8 @@ class PageTemplate
 		#	    style="position:relative;top:X%;left:X%,width:X%;height:X%">
 		def make_icon_html(page_info)
 			div_style = {
-				:width => 128,
-				:height => 128 * page_info[:width] / page_info[:height]
+				:height => 128,
+				:width => 128 * page_info[:width] / page_info[:height]
 			}
 			image_data = []
 			page_info[:images].each_index do |i|
@@ -244,6 +272,16 @@ class PageTemplate
 				}
 				image_data.push(img_style);
 			end
+			text_data = []
+			page_info[:text].each do |t|
+				text_style = {
+					:top => (t['top'].to_f / page_info[:height] * 100).to_i,
+					:left => (t['left'].to_f / page_info[:width] * 100).to_i,
+					:width => (t['width'].to_f / page_info[:width] * 100).to_i,
+					:height => 8
+				}
+				text_data.push(text_style)
+			end
 			html = StringIO.new
 			html << "<div class='page-icon'"
 			html << " style='width:#{div_style[:width]}px;height:#{div_style[:height]}px'>"
@@ -251,7 +289,25 @@ class PageTemplate
 				html << "\n<img data-img-pos='#{img[:img_pos]}'"
 				html << " src='#{img[:src]}'"
 				html << " style='width:#{img[:width]}%;height:#{img[:height]}%;top:#{img[:top]}%;left:#{img[:left]}%'"
-				html << ">"
+				html << ">\n"
+			end
+			lipsum = [
+				"Lorem ipsum dolor sit amet,",
+				"consectetur adipiscing elit.",
+				"Etiam id diam lorem. Phasellus",
+				"facilisis mattis enim tempor porta.",
+				"Cras at dui non metus dignissim mattis",
+				"vel sit amet mi. Fusce eget mauris erat",
+				"quis fringilla dui. Pellentesque orci"		
+			]
+			text_data.each do |t|
+				html << "<div style=\'"
+				html << "font-size:5px;overflow:hidden;"
+				html << "width:#{t[:width]}%;height:#{t[:height]}px;"
+				html << "top:#{t[:top]}%;left:#{t[:left]}%;"
+				html << "\'>"
+				html << lipsum.choice
+				html << "</div>"
 			end
 			html << "\n</div>"
 			html.string
@@ -271,6 +327,7 @@ class PageTemplate
 		# update image count in YAML
 		data = YAML::load_file(self.yml_file_name)
 		data["image_count"] = page_info[:images].length
+		data["text_count"] = page_info[:text].length
 		File.open(self.yml_file_name, "w") { |f| f.write(YAML::dump(data)) }
 		
 	end
