@@ -17,10 +17,10 @@ class BookTemplate
 	attr_reader :width
 	attr_reader :height
 	attr_reader :folder
-	attr_reader :style
+	attr_reader :name
 	
-	def self.get(style) 
-		return BookTemplate.new({ "style" => style });
+	def self.get(attrs)
+		BookTemplate.new(attrs);
 	end
 	
 	def self.all()
@@ -29,10 +29,12 @@ class BookTemplate
 			.map { |x| BookTemplate.get(x) }
 	end
 	
+	# attrs is either name, or attribute hash
 	def initialize(attrs)
-		@style = attrs["style"] if attrs
-		@folder = File.join(SvegApp.templates, @style)
-		raise "Book template #{@style} does not exist." unless File.exist?(@folder)
+		attrs = { "name" => attrs} if attrs.is_a? String
+		@name = attrs["name"] 
+		@folder = File.join(SvegApp.templates, @name)
+		raise "Book template #{@name} does not exist." unless File.exist?(@folder)
 		begin
 			data = YAML::load_file(self.yml_file_name)
 			@width = data["width"]
@@ -42,7 +44,17 @@ class BookTemplate
 			raise "Error reading template book.yml file:" + e.message
 		end
 	end
-		
+
+	def to_json(*a)
+		{
+			:id => @name,
+			:width => @width,
+			:height => @height,
+			:initial_pages => @initialPages,
+			:pages => self.get_all_pages
+		}.to_json(*a)
+	end
+			
 	def pages_folder_name
 		File.join(@folder, "pages")
 	end
@@ -65,7 +77,8 @@ class BookTemplate
 			.map { |x| PageTemplate.get(self, x.gsub(/\.html$/, "")) }
 	end
 	
-	# m[1] filename, m[2] ext
+	# Regex for filename parsing
+	# m[1] filename, m[2] ext 
 	@@IMAGE_MATCH = /(.*)\.(jpg|png|gif|JPG|PNG|GIF)\Z/ 
 	# m[1] filename,m[2] display|icon, m[3] ext
 	@@DISPLAY_ICON_IMAGE_MATCH = /(.*)_(display|icon)\.(\w+)\Z/ #
@@ -115,6 +128,28 @@ class BookTemplate
 			File.delete(file_name) if File.exists?(file_name)
 		end
 	end
+	
+	def create_book(user, params)
+		# sanitize params
+		valid_props = PB::Book.properties.field_map
+		clean_params = {}
+		params.each{ |k, v| clean_params[k] = v if valid_props.has_key?(k)}
+		book = Book.new(user, clean_params)
+		book.save
+		self.get_default_pages.each do |page|
+			book.pages << page
+			page.save # id is created here
+			if book.page_order
+				book.page_order += ","
+			else
+				book.page_order = ""
+			end
+			book.page_order += page.id.to_s
+		end
+		book.save
+		book
+	end
+
 end
 
 # Used when generate_icon encounters pre-existing file
@@ -133,6 +168,7 @@ class PageTemplate
 	attr_reader :icon # icon as html
 	attr_reader :page_position # where can page be positioned: middle|cover|flap|back
 	attr_reader :image_count # how many images are on the page
+	attr_reader :text_count # how many text areas on the page
 	# :middle_style: photo|map|text etc used to sort pages in add dialog
 	# photo: standard photo page
 	# map: map
@@ -161,6 +197,20 @@ class PageTemplate
 		@html = IO.read(self.html_file_name)
 		@icon = File.exists?(self.icon_file_name) ? IO.read(self.icon_file_name) :\
 		 "<div class='page-icon' style='width:128px;height:128px'><p>Default icon</p></div>"
+	end
+
+	def to_json(*a)
+		{
+			:id => @templage_id,
+			:width => @width,
+			:height => @height,
+			:page_position => @page_position,
+			:image_count => @image_count,
+			:text_count => @text_count,
+			:middle_style => @middle_style,
+			:html => @html,
+			:icon => @icon
+		}.to_json(*a)
 	end
 	
 	def icon_file_name

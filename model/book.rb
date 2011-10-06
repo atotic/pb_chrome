@@ -18,31 +18,30 @@ class Book
 	property :updated_at,		DateTime
 	
 	property :title,				String,	 :required => true
-	property :template_attributes,	 Text
-	property :template_id,	String
 	property :pdf_location,	String
 	property :page_order, String	# comma separated list of page ids.
+	property :template_name, String # name of the template
+	property :template,	 Text	# template attributes, stored as json
 	
 	belongs_to :user
 	has n, :pages, 'BookPage'
 	has n, :photos, :through => Resource
-	
-	validates_with_method :template_attributes, :method => :validate_template_attributes
-	
+		
 	validates_with_method :pages, :method => :validate_pages
 	
 	#
 	# *args are either:
-	# [ user, {attributes}, {template_attributes}]
+	# [ user, {attributes}]
 	# or [] for default book
 	def initialize(*args)
 		case
 		when args.length == 0
 			super({})
-		when args.length == 3
+		when args.length == 2
 			super(args[1])
 			self.user = args[0]
-			self.template_attributes = args[2].to_json
+		else
+			raise "Book must have a user"
 		end
 	end
 	
@@ -60,13 +59,21 @@ class Book
 		end
 	end
 	
+	# template is set as a hash, but retreived as an array
+	def template=(new_template)
+		self.template_name = new_template["name"]
+		new_template = new_template.to_json unless template.is_a? String
+		super(new_template)
+	end
+	
 	def to_json(*a)
 		{
 			:id => self.id,
 			:title => self.title,
 			:pages => self.pages.to_a,
 			:photos => self.photos.to_a,
-			:page_order => self.page_order.split(",").map { |x| x.to_i }
+			:page_order => self.page_order.split(",").map { |x| x.to_i },
+			:template_id => self.template_name
 		}.to_json(*a)
 	end
 	
@@ -88,22 +95,6 @@ class Book
 				return [false, "Invalid book page #{page.errors.full_messages.join(";")}"] unless page.valid?
 		end
 		true
-	end
-
-	def init_from_template
-		self.save unless self.id	# must be saved before adding associated records
-		t = self.get_template
-		t.get_default_pages.each do |page|
-			self.pages << page
-			page.save # id is created here
-			if self.page_order
-				self.page_order += ","
-			else
-				self.page_order = ""
-			end
-			self.page_order += page.id.to_s
-		end
-		self.save
 	end
 	
 	def pdf_path
