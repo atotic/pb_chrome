@@ -166,14 +166,14 @@ class PageTemplate
 	attr_reader :width # width in css units
 	attr_reader :height # height in css units
 	attr_reader :icon # icon as html
-	attr_reader :page_position # where can page be positioned: middle|cover|flap|back
+	attr_reader :position # where can page be positioned: middle|cover|flap|back
 	attr_reader :image_count # how many images are on the page
 	attr_reader :text_count # how many text areas on the page
-	# :middle_style: photo|map|text etc used to sort pages in add dialog
+	# :position_type: photo|map|text etc used to sort pages in add dialog
 	# photo: standard photo page
 	# map: map
 	# text: text-only page
-	attr_reader :middle_style 
+	attr_reader :position_type 
 	
 		
 	# get named template
@@ -189,10 +189,10 @@ class PageTemplate
 		
 		@width = data["width"] 	
 		@height = data["height"]
-		@page_position = data["page_position"] || "middle" 
+		@position = data["position"] || "middle" 
 		@image_count = data["image_count"] || nil
 		@text_count = data["text_count"] || 0
-		@middle_style = data["middle_style"] || "photo"
+		@position_type = data["position_type"] || "photo"
 		
 		@html = IO.read(self.html_file_name)
 		@icon = File.exists?(self.icon_file_name) ? IO.read(self.icon_file_name) :\
@@ -201,13 +201,13 @@ class PageTemplate
 
 	def to_json(*a)
 		{
-			:id => @templage_id,
+			:id => @template_id,
 			:width => @width,
 			:height => @height,
-			:page_position => @page_position,
+			:position => @position,
 			:image_count => @image_count,
 			:text_count => @text_count,
-			:middle_style => @middle_style,
+			:position_type => @position_type,
 			:html => @html,
 			:icon => @icon
 		}.to_json(*a)
