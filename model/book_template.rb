@@ -378,7 +378,8 @@ class PageTemplate
 		data = YAML::load_file(self.yml_file_name)
 		data["image_count"] = page_info[:images].length
 		data["text_count"] = page_info[:text].length
-		File.open(self.yml_file_name, "w") { |f| f.write(YAML::dump(data)) }
+		# write out YAML file with sorted keys. This avoids diffs if file has not changed
+		File.open(self.yml_file_name, "w") { |f| f.write(YAML::dump(data).split("\n").sort.join("\n")) }
 		
 	end
 	
