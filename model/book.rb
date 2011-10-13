@@ -114,6 +114,7 @@ class BookPage
 	property :width,				String # css width units px|in|cm etc
 	property :height,				String # css width units
 	property :icon,					Text, :lazy => false # html icon
+	property :position,			String # page position (see template): cover|flap|inside|middle|back
 
 	belongs_to :book
 	
@@ -123,7 +124,8 @@ class BookPage
 			:width => self.width,
 			:height => self.height,
 			:html => self.html,
-			:icon => self.icon
+			:icon => self.icon,
+			:position => self.position
 		}.to_json(*a)
 	end
 end

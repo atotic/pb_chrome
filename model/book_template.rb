@@ -240,7 +240,7 @@ class PageTemplate
 		# randomly change the id
 		# save the new html
 		BookPage.new({
-			:width => @width, :height => @height, :html => html_with_id, :icon => @icon
+			:width => @width, :height => @height, :html => html_with_id, :icon => @icon, :position => @position
 		})
 	end
 	
@@ -318,7 +318,7 @@ class PageTemplate
 					:height => (img["height"].to_f / page_info[:height] * 100).to_i,
 					:width => (img["width"].to_f / page_info[:width] * 100).to_i,
 					:img_pos => i,
-					:src => img["src"].sub(/\\?size=[a-zA-Z]+$/, "") + "?size=icon"
+					:src => img["src"].sub(/\?size=[a-zA-Z]+$/, "") + "?size=icon"
 				}
 				image_data.push(img_style);
 			end
