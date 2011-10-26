@@ -278,7 +278,7 @@ class PageTemplate
 				# get img src
 				img_tags = div.xpath("img[@class='actual-image']")
 				if img_tags.empty? then
-					img_info['src'] = img_info['height'] > img_info['width'] ? "/assets/common/v1.jpg" : "/assets/common/h1.jpg"
+					img_info['src'] = img_info['height'] > img_info['width'] ? "/assets/common/v1.png" : "/assets/common/h1.png"
 				else
 					img_tag = img_tags[0]
 					raise MalformedHTML.new("<img class='actual-image'> must have src attribute") unless img_tag['src']

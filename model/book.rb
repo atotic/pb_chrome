@@ -7,7 +7,7 @@ require 'json'
 require 'model/user'
 require 'model/photo'
 require 'model/book_template'
-
+require 'model/command_stream'
 module PB
 	
 class Book
