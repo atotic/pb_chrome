@@ -67,13 +67,15 @@ class Book
 	end
 	
 	def to_json(*a)
+		last_cmd = ServerCommand.last(:book_id => self.id)
 		{
 			:id => self.id,
 			:title => self.title,
 			:pages => self.pages.to_a,
 			:photos => self.photos.to_a,
 			:page_order => self.page_order.split(",").map { |x| x.to_i },
-			:template_id => self.template_name
+			:template_id => self.template_name,
+			:last_server_cmd_id => (last_cmd ? last_cmd.id : 0)
 		}.to_json(*a)
 	end
 	
