@@ -224,7 +224,10 @@ class PageTemplate
 	def html_file_name
 		File.join(@book_template.folder(), "pages", @template_id + ".html")
 	end
-				
+	
+	# There is a javascript method, PB.PageTemplate.prototype.makePage
+	# that does the same thing. These two methods have to be in sync
+	# If you edit this method, MAKE SURE TO PORT YOUR CHANGES TO JAVASCRIPT
 	def make_page
 		doc = Nokogiri::HTML(@html)
 		# generate unique id's for all image/text nodes, and any other nodes that have an id

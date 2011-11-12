@@ -5,6 +5,7 @@ require 'dm-timestamps'
 
 require 'model/book'
 require 'eventmachine'
+require 'json'
 
 module PB
 
@@ -16,19 +17,53 @@ class ServerCommand
 	property :created_at,		DateTime
 	property :updated_at,		DateTime
 	
-	property :payload,			Text	# command-specific json payload
+	property :payload,			Text, :lazy => false	# command-specific json payload
 	property :type,					String
 	belongs_to :book
 	
 	def self.createAddPhotoCmd(book_id, photo, exclude_stream)
-		payload = photo.to_json()
 		cmd = ServerCommand.new({
 			:type => "AddPhoto",
 			:book_id => book_id,
-			:payload => payload
+			:payload => photo.to_json
 		})
 		cmd.save()
 		CmdStreamBroadcaster.broadcast(cmd, book_id, exclude_stream)
+		cmd.id
+	end
+	
+	def self.createReplacePageCmd(page, exclude_stream)
+		cmd = ServerCommand.new({
+			:type => "ReplacePage",
+			:book_id => page.book_id,
+			:payload => page.to_json
+		})
+		cmd.save
+		CmdStreamBroadcaster.broadcast(cmd, page.book_id, exclude_stream)
+		cmd.id		
+	end
+	
+	def self.createAddPageCmd(page, previous_page, exclude_stream) 
+		payload = JSON.parse(page.to_json);
+		payload[:previous_page] = previous_page
+		cmd = ServerCommand.new({
+			:type => "AddPage",
+			:book_id => page.book_id,
+			:payload => payload.to_json
+		});
+		cmd.save
+		CmdStreamBroadcaster.broadcast(cmd, page.book_id, exclude_stream)
+		cmd.id
+	end
+
+	def self.createDeletePageCmd(page, exclude_stream)
+		cmd = ServerCommand.new({
+			:type => "DeletePage",
+			:book_id => page.book_id,
+			:payload => { :page_id => page.id }.to_json
+		});
+		cmd.save
+		CmdStreamBroadcaster.broadcast(cmd, page.book_id, exclude_stream)
 		cmd.id
 	end
 	
@@ -78,6 +113,7 @@ class CmdStreamBroadcaster
 	# msg is String||ServerCommand
 	def self.broadcast( msg, book_id, exclude_id )
 		LOGGER.info("CmdStreamBroadcaster.send")
+		book_id = Integer(book_id)
 		encoded_msg = self.encode_msg(msg)
 		streams = @@listeners[Integer(book_id)] || []
 		streams.each do |item| 

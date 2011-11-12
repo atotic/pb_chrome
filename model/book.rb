@@ -19,9 +19,9 @@ class Book
 	
 	property :title,				String,	 :required => true
 	property :pdf_location,	String
-	property :page_order, String	# comma separated list of page ids.
+	property :page_order, Text, :lazy => false	# comma separated list of page ids.
 	property :template_name, String # name of the template
-	property :template,	 Text	# template attributes, stored as json
+	property :template,	 Text, :lazy => false	# template attributes, stored as json
 	
 	belongs_to :user
 	has n, :pages, 'BookPage'
@@ -103,6 +103,20 @@ class Book
 		self.pdf_location
 	end
 
+	def insertPage(page, page_number)
+		page_number ||= 0;
+		page_number = Integer(page_number);
+		self.pages << page
+		page.save # id is created here
+		if self.page_order
+			self.page_order += ","
+		else
+			self.page_order = ""
+		end
+		self.page_order = self.page_order.split(',').insert(page_number, page.id).join(',') 
+		self.save
+	end
+	
 end
 
 class BookPage
@@ -120,6 +134,7 @@ class BookPage
 
 	belongs_to :book
 	
+	before :destroy, :remove_from_page_order
 	def to_json(*a)
 		{
 			:id => self.id,
@@ -129,6 +144,13 @@ class BookPage
 			:icon => self.icon,
 			:position => self.position
 		}.to_json(*a)
+	end
+	
+	def remove_from_page_order
+		b = self.book
+		page_order = b.page_order.split(",")
+		page_order.delete(self.id.to_s)
+		b.page_order = page_order.join(',')
 	end
 end
 
