@@ -43,9 +43,9 @@ class ServerCommand
 		cmd.id		
 	end
 	
-	def self.createAddPageCmd(page, previous_page, exclude_stream) 
+	def self.createAddPageCmd(page, page_position, exclude_stream) 
 		payload = JSON.parse(page.to_json);
-		payload[:previous_page] = previous_page
+		payload[:previous_page] = page_position - 1
 		cmd = ServerCommand.new({
 			:type => "AddPage",
 			:book_id => page.book_id,

@@ -105,7 +105,6 @@ class Book
 
 	def insertPage(page, page_number)
 		page_number ||= 0;
-		page_number = Integer(page_number);
 		self.pages << page
 		page.save # id is created here
 		if self.page_order
