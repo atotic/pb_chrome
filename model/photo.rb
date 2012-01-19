@@ -52,13 +52,13 @@ class Photo
 	end
 end
 
-# Photos are stored inside SvegApp.photo_dir/:user_id/:photo_id.img
+# Photos are stored inside SvegSettings.photo_dir/:user_id/:photo_id.img
 # 
 class PhotoStorage
 	# stores the uploaded file, and updates
 	
 	def self.get_user_dir(photo)
-		dir = File.join(SvegApp.photo_dir, photo.user_id.to_s)
+		dir = File.join(SvegSettings.photo_dir, photo.user_id.to_s)
 		FileUtils.mkdir_p(dir)
 		dir
 	end

@@ -7,7 +7,7 @@ module PB
 class BookToPdf
 	
 	def get_book_dir(book)
-		dir = File.join(SvegApp.book2pdf_dir, book.user_id.to_s)
+		dir = File.join(SvegSettings.book2pdf_dir, book.user_id.to_s)
 		FileUtils.mkdir_p(dir)
 		dir
 	end
@@ -83,7 +83,7 @@ class BookToPdf
 		pdf_dir = File.join(book_dir, "pdf")
 		FileUtils.mkdir_p(pdf_dir)
 		# copy css
-		FileUtils.cp(File.join(SvegApp.templates, "print-sheet.css"), book_dir);
+		FileUtils.cp(File.join(SvegSettings.templates, "print-sheet.css"), book_dir);
 		# copy the images
 		book.photos.each do |photo| 
 			FileUtils.cp(photo.file_path(), photo_dir)

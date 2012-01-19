@@ -1,4 +1,3 @@
 # config.ru
 require 'sveg'
-debugger
-run SvegApp
+run PB::SvegApp

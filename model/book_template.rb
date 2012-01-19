@@ -24,8 +24,8 @@ class BookTemplate
 	end
 	
 	def self.all()
-		Dir.entries(SvegApp.templates)\
-			.select { |x| !x.start_with?(".") && File.directory?(File.join(SvegApp.templates, x)) }\
+		Dir.entries(SvegSettings.book_templates)\
+			.select { |x| !x.start_with?(".") && File.directory?(File.join(SvegSettings.book_templates, x)) }\
 			.map { |x| BookTemplate.get(x) }
 	end
 	
@@ -33,7 +33,7 @@ class BookTemplate
 	def initialize(attrs)
 		attrs = { "name" => attrs} if attrs.is_a? String
 		@name = attrs["name"] 
-		@folder = File.join(SvegApp.templates, @name)
+		@folder = File.join(SvegSettings.book_templates, @name)
 		raise "Book template #{@name} does not exist." unless File.exist?(@folder)
 		begin
 			data = YAML::load_file(self.yml_file_name)
