@@ -1,11 +1,12 @@
 .loadpath
 .project
+apps
 debug.rc
 development.sqlite
-photo-storage
-pdf-books
-apps
 docs/StackOverflowLogin.tiff
-test/test.sqlite
+pdf-books
+photo-storage
 test/photo-storage
+test/test.sqlite
 tmp
+
