@@ -6,9 +6,9 @@ require 'json'
 require 'nokogiri'
 require 'css_parser'
 
-require 'model/user'
-require 'model/photo'
-require 'model/book'
+require 'app/user'
+require 'app/photo'
+require 'app/book'
 
 module PB
 # Holds information about a book template
@@ -24,8 +24,8 @@ class BookTemplate
 	end
 	
 	def self.all()
-		Dir.entries(SvegSettings.book_templates)\
-			.select { |x| !x.start_with?(".") && File.directory?(File.join(SvegSettings.book_templates, x)) }\
+		Dir.entries(SvegSettings.book_templates_dir)\
+			.select { |x| !x.start_with?(".") && File.directory?(File.join(SvegSettings.book_templates_dir, x)) }\
 			.map { |x| BookTemplate.get(x) }
 	end
 	
@@ -33,7 +33,7 @@ class BookTemplate
 	def initialize(attrs)
 		attrs = { "name" => attrs} if attrs.is_a? String
 		@name = attrs["name"] 
-		@folder = File.join(SvegSettings.book_templates, @name)
+		@folder = File.join(SvegSettings.book_templates_dir, @name)
 		raise "Book template #{@name} does not exist." unless File.exist?(@folder)
 		begin
 			data = YAML::load_file(self.yml_file_name)

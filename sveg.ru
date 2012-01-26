@@ -1,3 +1,4 @@
-# config.ru
+# App server
+
 require 'sveg'
 run PB::SvegApp

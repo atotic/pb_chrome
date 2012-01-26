@@ -1,12 +1,8 @@
 .loadpath
 .project
-apps
-debug.rc
-development.sqlite
-docs/StackOverflowLogin.tiff
-pdf-books
-photo-storage
+data
+docs/*.tiff
+docs/iPhoto templates
 test/photo-storage
 test/test.sqlite
-tmp
-
+public/images/border*.png

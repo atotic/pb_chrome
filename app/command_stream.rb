@@ -3,7 +3,7 @@ require 'dm-core'
 require 'dm-migrations'
 require 'dm-timestamps'
 
-require 'model/book'
+require 'app/book'
 require 'eventmachine'
 require 'json'
 

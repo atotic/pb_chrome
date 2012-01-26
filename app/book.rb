@@ -4,10 +4,10 @@ require 'dm-migrations'
 require 'dm-timestamps'
 require 'json'
 
-require 'model/user'
-require 'model/photo'
-require 'model/book_template'
-require 'model/command_stream'
+require 'app/user'
+require 'app/photo'
+require 'app/book_template'
+require 'app/command_stream'
 module PB
 	
 class Book
@@ -19,6 +19,8 @@ class Book
 	
 	property :title,				String,	 :required => true
 	property :pdf_location,	String
+	property :pdf_generate_error, String
+	property :pdf_generate_in_progress, Boolean, :default => false
 	property :page_order, Text, :lazy => false	# comma separated list of page ids.
 	property :template_name, String # name of the template
 	property :template,	 Text, :lazy => false	# template attributes, stored as json
@@ -116,6 +118,30 @@ class Book
 		self.save
 	end
 	
+	def generate_pdf(force = false)
+	  #		BookToPdf.new(book.id).perform()
+	  return "Book PDF generation not started. There is already a build in progress." if self.pdf_generate_in_progress && !force
+	  self.pdf_location = nil
+	  self.pdf_generate_error = nil
+	  self.pdf_generate_in_progress = true
+	  save
+	  Delayed::Job.enqueue BookToPdf.new(self.id)
+	  return "Book PDF proof will be ready in a few minutes."
+  end
+  
+  def generate_pdf_done(pdf_path)
+    self.pdf_location = pdf_path
+    self.pdf_generate_error = nil
+    self.pdf_generate_in_progress = false
+    self.save
+  end
+  
+  def generate_pdf_fail(err_msg)
+    self.pdf_location = pdf_path
+    self.pdf_generate_error = nil
+    self.pdf_generate_in_progress = false
+    self.save
+  end
 end
 
 class BookPage
