@@ -1,8 +1,10 @@
 .loadpath
 .project
+.bundle
 data
 docs/*.tiff
 docs/iPhoto templates
 test/photo-storage
 test/test.sqlite
 public/images/border*.png
+

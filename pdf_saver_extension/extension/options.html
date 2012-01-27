@@ -1,0 +1,47 @@
+<html>
+<head><title>My Test Extension Options</title></head>
+<script type="text/javascript">
+
+// Saves options to localStorage.
+function save_options() {
+  var pdfserver = document.getElementById("serverPdf");
+  localStorage["pdfServer"] = pdfserver.value;
+  if (pdfserver.value != "") {
+	  var request = new XMLHttpRequest();
+		var url = localStorage["pdfServer"] + 'test';
+	  request.open('GET', url , false);
+		try {
+	 		request.send(null);
+		}
+		catch(err) {
+			request.status = -1;
+		}
+		var err = document.getElementById("error");
+	  if (request.status != 200) {
+			err.innerText = "Server could not be reached " + request.status + " "+ url;
+			setTimeout(function() { err.innerText = ""}, 6000);
+		}
+		else
+			err.innerText = "";
+	}
+  // Update status to let user know options were saved.
+  var status = document.getElementById("status");
+  status.innerText = "Options Saved.";
+  setTimeout(function() { status.innerText = ""; }, 750);
+}
+
+// Restores select box state to saved value from localStorage.
+function restore_options() {
+  var pdfserver = document.getElementById("serverPdf");
+  pdfserver.value = localStorage["pdfServer"] || "http://localhost:20011/";
+}
+</script>
+
+<body onload="restore_options()">
+<label for "serverPdf">Save PDFs on server </label><input type="text" size="40" id="serverPdf"/>
+<br>
+<button onclick="save_options()">Save</button>
+<p id="status"></p>
+<p id="error" style="color:red"></p>
+</body>
+</html>

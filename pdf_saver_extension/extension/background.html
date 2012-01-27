@@ -1,0 +1,107 @@
+<html>
+<head>
+<script>
+
+function getServerUrl() {
+	var s = localStorage['pdfServer'] || "http://localhost:20011/";
+	return s;
+}
+
+function notifyProblem(msg) {
+	console.error(msg);
+	var notification = webkitNotifications.createNotification(
+	  'icon.png', 'PDF Upload Problem!',  msg);
+	notification.show();
+}
+
+var activeRequestCount = 0;
+var MAX_REQUEST_COUNT = 1;
+
+function startPdfConversion(json) {
+	// open new tab
+	// load the url
+	// when document ready, do saveAsPdf
+	// in callback, post data back to server
+	function pdfDone(pdfData) {
+		var xhr = new XMLHttpRequest();
+		var url = getServerUrl() + "pdf_done?id=" + json.id;
+		xhr.open("POST", url, true);
+		xhr.onload = function (ev) {
+			if (xhr.status != 200) {
+				notifyProblem("PDF Upload failed. " + xhr.status + "\n" + xhr.responseText);
+			}
+			else
+				console.info("PDF uploaded") 
+		};
+		xhr.onerror = function(ev) {
+			notifyProblem("PDF Upload failed. PDF Upload server might be down.");
+		};
+		xhr.send(pdfData);		
+	}
+	
+	function pdfFail(message) {
+		var xhr = new XMLHttpRequest();
+		var url = getServerUrl() + "pdf_fail?id=" + json.id
+		xhr.open("POST", url, true);
+		xhr.onerror = function(ev) {
+			notifyProblem("Double failure: pdfFail xhr failed. Message was " + message);
+		};
+		xhr.send(message);
+	}
+	
+	function tabCreated(Tab tab) {
+		if (tab.status != 'complete')	 // busy wait for timeout to complete
+			return setTimeout(function() { tabCreated(tab) }, 100);
+		options = {
+			tabId: tab.id,
+			dpi: 300,
+			margin: [0],
+			pageWidth: 612,
+			pageHeight: 792
+		}
+		if ('dpi' in json) options.dpi = json.dpi;
+		if ('margin' in json) options.margin = json.margin;
+		if ('pageWidth' in json) options.pageWidth = pageWidth;
+		if ('pageHeight' in json) options.pageHeight = pageHeight;
+		chrome.pageCapture.saveAsPDF( options, function(pdfData) {
+			activeRequestCount--;
+			if ('lastError' in chrome.extension)
+				pdfFail(chrome.extension.lastError.message);
+			else
+				pdfDone(pdfData);
+		});
+		
+	}
+	activeRequestCount++;
+	chrome.tabs.create({'url': json.html_file_url}, tabCreated);
+}
+
+function pollForWork() {
+	if (activeRequestCount >= MAX_REQUEST_COUNT)
+		return;
+	var xhr = new XMLHttpRequest();
+	var url = getServerUrl() + "get_pdf_work";
+	xhr.open("GET", url, true);
+	xhr.onload = function(ev) {
+		if (xhr.status == 200)
+			startPdfConversion();
+		else if (xhr.status == 204)
+			;
+		else 
+			notifyProblem("Error getting work " + xhr.status);
+	}
+	xhr.onerror = function(ev) {
+		notifyProblem("Error getting work " + xhr.status);
+	}
+	xhr.send();
+}
+
+setInterval(pollForWork, 1000);
+
+chrome.browserAction.onClicked.addListener(function(tab) {
+	startPdfConversion(tab);
+});
+
+
+</script>
+</head>

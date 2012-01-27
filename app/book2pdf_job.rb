@@ -7,7 +7,7 @@ require "fileutils"
 # PDF generation uses Chrome. Chrome has the best HTML=>PDF engine.
 # Chrome is not built to be run as a command-line tool, and 
 # coaxing it into spitting out PDFs on demand involves a
-# VERY CONVOLUTED DATA FLOW.
+# CONVOLUTED DATA FLOW.
 #
 # This is how it is done:
 #
@@ -15,7 +15,7 @@ require "fileutils"
 # A) pageCapture.saveAsPDF: patch Chrome to add pageCapture.saveAsPDF js API
 # B) pdf_saver_extension Chrome extension: implement a new Chrome extension. 
 #    pdf_saver_extension polls pdf_saver_server for work, when it gets some converts page to HTML, and sends it
-# C) pdf_saver_server: Rack server that saves incoming PDFs into a database
+# C) pdf_saver_server: Rack server that pdf_saver_extension polls for jobs, and submits jobs results to
 # 
 # Integrating these applications into Sveg
 # 
@@ -23,8 +23,9 @@ require "fileutils"
 # 
 # sveg gets the request: post '/books/:id/pdf', passes it on to
 # Book.generate_pdf creates a delayed_job.
-# delayed_job (if executed), will call Book.generate_pdf_done|fail
-# delayed_job is BookToPDF.perform. It creates html files,  then open html in Chrome.
+# delayed_job (if executed), will call Book.generate_pdf_done|fail on completion.
+# delayed_job is BookToPDF.perform. It creates html files, schedules ChromeHTMLToPDFTask
+# tto 
 # 
 # chrome gets 
 # PDFSaver Chrome extension converts html to pdf, and sends pdf to pdf_saver_server
@@ -48,18 +49,29 @@ class ChromeHTMLToPDFTask
 	property :created_at,		DateTime
 	property :updated_at,		DateTime
 	
-	property :html_file,    String
-	property :pdf_file,     String
-	property :book_id,      Integer
-	property :local_url,    String
+	property :html_file,    String, :required => true
+	property :pdf_file,     String, :required => true
+	property :book_id,      Integer, :required => true
+	property :html_file_url,String, :required => true
+	property :pageWidth,    Integer,:required => true # page width
+	property :pageHeight,   Integer,:required => true # page height
 	
-	STAGE_INITIAL = 0
-	STAGE_CHROME = 1
+	STAGE_WAITING = 0 # created
+	STAGE_DISPATCHED_TO_CHROME = 1 # Chrome got the message
 	STAGE_DONE = 2
-	property :processing_stage, Integer, :default =>  STAGE_INITIAL # processing stage
+	property :processing_stage, Integer, :default =>  STAGE_WAITING # processing stage
 
 	property :has_error,        Boolean, :default => false
 	property :error_message,    String
+	
+	def to_json(*a)
+		{
+			:id => self.id,
+			:html_file_url => self.html_file_url,
+			:width => self.width,
+			:height => self.height
+		}.to_json(*a)
+	end
 end
 
 # Create PDF file for a book
@@ -125,11 +137,11 @@ class BookToPdf
 	end
 	
 	def get_cmd_merge_pdf(book_pdf, pdf_files)
-		cmd_line = "/System/Library/Automator/Combine\\ PDF\\ Pages.action/Contents/Resources/join.py "
-		cmd_line << "-o #{book_pdf} "
+	  cmd_line = SvegSettings.pdf_toolkit_binary
 		pdf_files.each do |pdf|
-			cmd_line << pdf << " "
-		end		
+			cmd_line << " " << pdf
+		end
+		cmd_line << " cat output #{book_pdf}"
 		cmd_line
 	end
 	
@@ -186,31 +198,49 @@ eos
 		@logger.info "Creating PDFs"
 
     pdf_files = []
+ 		# Create ChromeHTMLToPDFTask for every page
  		html_files.each_index do |index|
  		  task = ChromeHTMLToPDFTask.create( {
  		    :html_file => html_files[index],
   			:pdf_file => File.join(pdf_dir, File.basename(html_file).sub(".html", ".pdf")),
   			:book_id => book.id,
-  			:local_url => "file:///" + File.absolute_path(html_files[index])
+  			:html_file_url => "file:///" + File.absolute_path(html_files[index]),
+  			:pageWidth => convertToPixels(book.pages[index].width),
+  			:pageHeight => convertToPixels(book.pages[index].height)
  		  })
- 		  
-      begin
-        Timeout.timeout(10) do
-            # ...
+ 		  pdf_files << task.pdf_file
+ 		end
+ 		
+ 		# Tasks are converted to PDFs on a Chrome instance
+ 		# Busywait until all tasks have been converted
+ 		timeout = SvegSettings.environment != :production ? 60 : 1200
+ 		timed_out = false
+    begin
+      Timeout.timeout(timeout) do
+        remaining_tasks = [1]
+        while remaining_tasks.length > 0
+          remaining_tasks = ChromeHTMLToPDFTask.all(:book_id => book.id, :processing_stage.not => PB::STAGE_DONE)
+          sleep 1
         end
-      rescue Timeout::Error => e
-          # the task took longer than 10 seconds
       end
- 		  cmd_line = self.get_cmd_chrome_pdf()
-			pdf_files << task.pdf_file
-			cmd_line = self.get_cmd_export_pdf(html_file, pdf_name, book_page.width, book_page.height)
-			@logger.info cmd_line
-			success = Kernel.system cmd_line
-			raise ("PDF generator crashed " + $?.to_s) unless success
-		end
-   
-    pdf_files
+    rescue Timeout::Error => e
+      @logger.error("PDF generation timed out after " + timeout + " seconds. Book: " + book.id)
+      timed_out = true
+    end
 
+    converted =  ChromeHTMLToPDFTask.all(:book_id => book.id, :processing_stage.eql => PB::STAGE_DONE)
+    waiting =  ChromeHTMLToPDFTask.all(:book_id => book.id, :processing_stage.not => PB::STAGE_DONE)
+    failed = ChromeHTMLToPDFTask.all(:book_id => book.id, :has_error => true)
+  
+    failed.each { |t| @logger.error("Book " + book.id + " html " + t.html_file_url + " err: " + t.error_message)}    
+
+    # Remove the tasks
+    ChromeHTMLToPDFTask.all(:book_id => book.id).destroy
+
+    raise ("PDF generation timed out after " + timeout + " seconds.") if timed_out
+    raise ("PDF pages had errors in them, see error log for details.") if failed.length > 0
+    
+    pdf_files
   end
   
   # delayed_job callback. Creates the PDFs
@@ -230,12 +260,12 @@ eos
   		book_pdf = File.join(book_dir, "book.pdf")
   		cmd_line = self.get_cmd_merge_pdf(book_pdf, pdf_files)
   		success = Kernel.system cmd_line
-  		raise ("PDF join crashed " + $?.to_s) unless success
-  		# mark it in the book
-  		book.pdf_location = book_pdf
-  		book.save!
+  		raise ("PDF merge crashed " + $?.to_s) unless success
   		@logger.info("PDF generation took " + (Time.now - start_time).to_s)
+  		# mark it in the book
+  		book.generate_pdf_done(book_pdf)
   	rescue => ex
+  	  book.generate_pdf_fail(ex.message)
 	  end
 	end
 end

@@ -137,8 +137,8 @@ class Book
   end
   
   def generate_pdf_fail(err_msg)
-    self.pdf_location = pdf_path
-    self.pdf_generate_error = nil
+    self.pdf_location = ""
+    self.pdf_generate_error = err_msg
     self.pdf_generate_in_progress = false
     self.save
   end

@@ -1,0 +1,20 @@
+<style>
+body {
+  min-width:357px;
+  overflow-x:hidden;
+}
+</style>
+<script>
+
+console.log("Why oh why are you not showing up?");
+chrome.tabs.query({}, function(tabs) {
+	for (var i =0; i<tabs.length; i++) {
+		var p = document.createElement("p");
+		p.innerText = tabs[i].title || "Untitled";
+		document.body.appendChild(p);
+	};
+});
+</script>
+<body>
+	<p>PDF generator speaking</p>
+</body>

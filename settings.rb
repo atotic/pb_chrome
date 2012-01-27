@@ -22,7 +22,7 @@ ENV['RAILS_ENV'] = ENV['RACK_ENV']
 class SvegSettings
   
   @root_dir = File.dirname(File.expand_path(__FILE__))
-  @environment = ( ENV['RACK_ENV'] || :development ).to_sym
+  @environment = ( ENV['RACK_ENV'] || :development ).to_sym # :production :development :test
   @book_templates_dir = File.join(@root_dir, "book-templates")
 
   @data_dir = @environment == :test ? File.join(@root_dir, "test", "data") : File.join(@root_dir, "data")
@@ -35,11 +35,13 @@ class SvegSettings
 	@chrome_binary = "/Users/atotic/chromium/src/out/Debug/Chromium.app/Contents/MacOS/Chromium"
 	@chrome_dir = "/Users/atotic/chromium/src/out/Debug/Chromium.app"
 	@chrome_profile_dir = File.join(@root_dir, "pdf_saver_chrome_profile")
+	@pdf_toolkit_binary = "/usr/local/bin/pdftk"
+	
   class << self
     attr_accessor :root_dir,:data_dir, :tmp_dir, :log_dir
     attr_accessor :environment
     attr_accessor :book_templates_dir, :photo_dir, :book2pdf_dir
-    attr_accessor :chrome_binary, :chrome_dir, :chrome_profile_dir
+    attr_accessor :chrome_binary, :chrome_dir, :chrome_profile_dir, :pdf_toolkit_binary
   end
   
   def self.init()

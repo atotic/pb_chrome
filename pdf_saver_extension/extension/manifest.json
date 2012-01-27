@@ -1,0 +1,18 @@
+{
+  "name": "PDFrome",
+  "version": "1.0",
+  "description": "Bulk PDF conversion with Chrome",
+  "background_page": "background.html",
+  "options_page": "options.html",
+  "browser_action": {
+    "default_icon": "icon.png",
+	"default_title": "save as PDF on server"
+  },
+  "permissions": [
+	 "tabs",
+	 "pageCapture",
+	 "notifications",
+	 "http://*/",
+	 "<all_urls>"
+  ]
+}
