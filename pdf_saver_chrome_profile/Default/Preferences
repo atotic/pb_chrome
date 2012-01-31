@@ -1,0 +1,293 @@
+{
+   "browser": {
+      "check_default_browser": false,
+      "clear_lso_data_enabled": true,
+      "window_placement": {
+         "always_on_top": false,
+         "bottom": 1080,
+         "left": 9,
+         "maximized": false,
+         "right": 1049,
+         "top": 28,
+         "work_area_bottom": 1600,
+         "work_area_left": 0,
+         "work_area_right": 2496,
+         "work_area_top": 22
+      },
+      "window_placement_DevToolsApp": {
+         "always_on_top": false,
+         "bottom": 1051,
+         "left": 532,
+         "maximized": false,
+         "right": 1468,
+         "top": 389,
+         "work_area_bottom": 1600,
+         "work_area_left": 0,
+         "work_area_right": 2496,
+         "work_area_top": 22
+      }
+   },
+   "cloud_print": {
+      "email": ""
+   },
+   "countryid_at_install": 21843,
+   "default_apps_install_state": 1,
+   "default_search_provider": {
+      "enabled": true,
+      "encodings": "UTF-8",
+      "icon_url": "http://www.google.com/favicon.ico",
+      "id": "2",
+      "instant_url": "{google:baseURL}webhp?{google:RLZ}sourceid=chrome-instant&{google:instantFieldTrialGroupParameter}ie={inputEncoding}&ion=1{searchTerms}",
+      "keyword": "google.com",
+      "name": "Google",
+      "prepopulate_id": "1",
+      "search_url": "{google:baseURL}search?{google:RLZ}{google:acceptedSuggestion}{google:originalQueryForSuggestion}{google:searchFieldtrialParameter}{google:instantFieldTrialGroupParameter}sourceid=chrome&ie={inputEncoding}&q={searchTerms}",
+      "suggest_url": "{google:baseSuggestURL}search?{google:searchFieldtrialParameter}{google:instantFieldTrialGroupParameter}client=chrome&hl={language}&q={searchTerms}"
+   },
+   "dns_prefetching": {
+      "host_referral_list": [ 2, [ "http://tools.google.com/", [ "http://fonts.googleapis.com/", 1.7024140130513836, "http://themes.googleusercontent.com/", 1.7024140130513836, "http://tools.google.com/", 3.395465130655353, "http://www.google-analytics.com/", 1.7024140130513836, "http://www.google.com/", 2.548939571853368 ] ], [ "http://www.google.com/", [ "http://ssl.gstatic.com/", 1.46483360387744, "http://www.google.com/", 4.887586703355885 ] ] ],
+      "startup_list": [ 1, "http://ssl.gstatic.com/", "http://www.google.com/" ]
+   },
+   "download": {
+      "directory_upgrade": true,
+      "extensions_to_open": ""
+   },
+   "extensions": {
+      "autoupdate": {
+         "last_check": "12971997056624627",
+         "next_check": "12972520809365351"
+      },
+      "blacklistupdate": {
+         "lastpingday": "12971952000941571",
+         "version": "0.0.0.12"
+      },
+      "chrome_url_overrides": {
+         "bookmarks": [ "chrome-extension://eemcgdkfndhakfknompkggombfjjjeno/main.html" ]
+      },
+      "settings": {
+         "ahfgeienlihckogmohjhadlkjgocpleb": {
+            "active_permissions": {
+               "api": [ "appNotifications", "management", "webstorePrivate" ]
+            },
+            "app_launcher_ordinal": "n",
+            "page_ordinal": "n"
+         },
+         "apdmgffkfhjfeejmbjidennfjdkmmmbl": {
+            "blacklist": true
+         },
+         "cbbjhegipokkofhhicbckicchjpcpeni": {
+            "blacklist": true
+         },
+         "dbmdicehacbaohlockjgdglcobimmjkh": {
+            "blacklist": true
+         },
+         "dpgenihgggagjjggfocjceeobjkadcbc": {
+            "blacklist": true
+         },
+         "efnaljpgehfilpmkhobibbjceeeondmn": {
+            "blacklist": true
+         },
+         "hgjgaeknhmidehalnmokomhpfhbfmpcm": {
+            "blacklist": true
+         },
+         "hpibmhghjndideebpackbdlpncgkcppp": {
+            "blacklist": true
+         },
+         "ifbkndkaolfbjjhnnhfmkbkoclpdkpli": {
+            "blacklist": true
+         },
+         "ijenlpgidnapbndonoinbkhekgjonojg": {
+            "blacklist": true
+         },
+         "kcanfkmhccbaheheaackijegkclkaeic": {
+            "blacklist": true
+         },
+         "lceaiepehinnomgijphkmjccbigkljkj": {
+            "blacklist": true
+         },
+         "likifpgnijjfbdegfepoalpamlgnfofi": {
+            "blacklist": true
+         },
+         "lncjcfkpannmofmpgdfoonkniofdnaba": {
+            "blacklist": true
+         },
+         "mfhfkclojmdocagbmecgcnlofppebebd": {
+            "blacklist": true
+         },
+         "mjgobkikdipfikmaoakdcdbicpioljgg": {
+            "blacklist": true
+         },
+         "mlmmbepkgelpbenpobinockmiehdahai": {
+            "blacklist": true
+         },
+         "nnioepmjbjjlflmdgjanlcmbjahljeeo": {
+            "blacklist": true
+         },
+         "pbglijbamgmlcpnnpbfjkbdeheejjloj": {
+            "blacklist": true
+         },
+         "pfcelnbmkeoaeicedjomcjkcammlkdbk": {
+            "blacklist": true
+         },
+         "pkbbbncikcipejaiiiioboongndhmjgl": {
+            "blacklist": true
+         }
+      },
+      "ui": {
+         "developer_mode": true
+      }
+   },
+   "homepage": "http://www.google.com/",
+   "homepage_is_newtabpage": true,
+   "http_throttling": {
+      "enabled": true
+   },
+   "instant": {
+      "enabled_time": "12971996178142202"
+   },
+   "net": {
+      "http_server_properties": {
+         "clients2.google.com:443": {
+            "settings": [ {
+               "id": 5,
+               "value": 32
+            }, {
+               "id": 6,
+               "value": 0
+            } ],
+            "supports_spdy": true
+         }
+      }
+   },
+   "ntp": {
+      "app_page_names": [ "Apps" ],
+      "promo_build": 0,
+      "promo_closed": false,
+      "promo_end": 1323071940.0,
+      "promo_feature_mask": 0,
+      "promo_group": 10,
+      "promo_group_max": 0,
+      "promo_group_timeslice": 0,
+      "promo_is_logged_in_to_plus": false,
+      "promo_line": "\u003Ca href=\"http://www.google.com/chromebook/index.html#utm_campaign=en&utm_source=en-ntp-holidays-na-us-bkws&utm_medium=ntp-holidays\"\u003EGet a Chromebook for the holidays\u003C/a\u003E: the computer powered by Chrome.",
+      "promo_platform": 0,
+      "promo_resource_cache_update": "1328040801.897857",
+      "promo_start": 1321862280.0,
+      "promo_views": 0,
+      "promo_views_max": 0
+   },
+   "plugins": {
+      "enabled_internal_pdf3": true,
+      "enabled_nacl": true,
+      "last_internal_directory": "/Users/atotic/chromium/src/out/Debug/Chromium.app/Contents/Versions/18.0.976.0/Chromium Framework.framework/Internet Plug-Ins",
+      "plugins_list": [ {
+         "enabled": true,
+         "name": "Remoting Viewer",
+         "path": "internal-remoting-viewer",
+         "version": ""
+      }, {
+         "enabled": true,
+         "name": "Remoting Viewer"
+      }, {
+         "enabled": true,
+         "name": "Facebook Video Calling Plugin ",
+         "path": "/Users/atotic/Library/Internet Plug-Ins/FacebookVideoCalling.bundle",
+         "version": "1.1.0.12"
+      }, {
+         "enabled": true,
+         "name": "Facebook Video Calling Plugin "
+      }, {
+         "enabled": true,
+         "name": "AmazonMP3DownloaderPlugin",
+         "path": "/Library/Internet Plug-Ins/AmazonMP3DownloaderPlugin.plugin",
+         "version": "AmazonMP3DownloaderPlugin 1.0.15"
+      }, {
+         "enabled": true,
+         "name": "AmazonMP3DownloaderPlugin"
+      }, {
+         "enabled": true,
+         "name": "Shockwave Flash",
+         "path": "/Library/Internet Plug-Ins/Flash Player.plugin",
+         "version": "11.1.102.55"
+      }, {
+         "enabled": true,
+         "name": "Flash"
+      }, {
+         "enabled": true,
+         "name": "Google Talk NPAPI Plugin",
+         "path": "/Library/Internet Plug-Ins/googletalkbrowserplugin.plugin",
+         "version": "2.6.1.5251"
+      }, {
+         "enabled": true,
+         "name": "Google Talk NPAPI Plugin"
+      }, {
+         "enabled": true,
+         "name": "iPhotoPhotocast",
+         "path": "/Library/Internet Plug-Ins/iPhotoPhotocast.plugin",
+         "version": "7.0"
+      }, {
+         "enabled": true,
+         "name": "iPhotoPhotocast"
+      }, {
+         "enabled": true,
+         "name": "Java Applet Plug-in",
+         "path": "/Library/Internet Plug-Ins/JavaAppletPlugin.plugin",
+         "version": "14.1.0"
+      }, {
+         "enabled": true,
+         "name": "Java"
+      }, {
+         "enabled": true,
+         "name": "LogMeIn Plugin 1.0.0.497",
+         "path": "/Library/Internet Plug-Ins/LogMeIn.plugin",
+         "version": "1.0.497"
+      }, {
+         "enabled": true,
+         "name": "LogMeIn Plugin 1.0.0.497"
+      }, {
+         "enabled": true,
+         "name": "Google Talk Plugin Video Accelerator",
+         "path": "/Library/Internet Plug-Ins/npgtpo3dautoplugin.plugin",
+         "version": "0.1.44.14"
+      }, {
+         "enabled": true,
+         "name": "Google Talk Plugin Video Accelerator"
+      }, {
+         "enabled": true,
+         "name": "QuickTime Plug-in 7.7.1",
+         "path": "/Library/Internet Plug-Ins/QuickTime Plugin.plugin",
+         "version": "7.7.1"
+      }, {
+         "enabled": true,
+         "name": "QuickTime"
+      }, {
+         "enabled": true,
+         "name": "Silverlight Plug-In",
+         "path": "/Library/Internet Plug-Ins/Silverlight.plugin",
+         "version": "4.0.60831.0"
+      }, {
+         "enabled": true,
+         "name": "Silverlight"
+      }, {
+         "enabled": true,
+         "name": "Unity Player",
+         "path": "/Library/Internet Plug-Ins/Unity Web Player.plugin",
+         "version": "UnityPlayer version 3.3.0f3"
+      }, {
+         "enabled": true,
+         "name": "Unity Player"
+      } ]
+   },
+   "profile": {
+      "avatar_index": 0,
+      "content_settings": {
+         "pref_version": 1
+      },
+      "exited_cleanly": true,
+      "name": "First user"
+   },
+   "sync_promo": {
+      "startup_count": 2,
+      "view_count": 2
+   }
+}

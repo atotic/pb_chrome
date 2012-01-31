@@ -1,4 +1,4 @@
-# Common settings, used by delayed_job, sveg, Rakefile
+# Common settings, used by all sveg servers and scripts
 
 # gem requires
 require 'rubygems'
