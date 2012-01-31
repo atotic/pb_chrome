@@ -1,2 +1,2 @@
 port: 20011
-rackup: pdf_saver_server.ru
+rackup: pdf_saver_server.rb

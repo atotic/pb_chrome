@@ -68,8 +68,8 @@ class ChromeHTMLToPDFTask
 		{
 			:id => self.id,
 			:html_file_url => self.html_file_url,
-			:width => self.width,
-			:height => self.height
+			:pageWidth => self.pageWidth,
+			:pageHeight => self.pageHeight
 		}.to_json(*a)
 	end
 end

@@ -9,14 +9,19 @@ require 'dm-migrations'
 require 'dm-transactions'
 require 'data_objects'
 
+
+DataMapper::Property::String.length(128) # must be declared before model definition
+
 # server code
 require 'app/book'
 require 'app/user'
 require 'app/photo'
 require 'app/book_template'
 require 'app/command_stream'
+require 'app/book2pdf_job'
 
-ENV['RACK_ENV'] = 'development' unless ENV.has_key?('RACK_ENV')
+ENV['RACK_ENV'] = 'test' if ENV.has_key? 'TEST'
+ENV['RACK_ENV'] = 'development' unless ENV.has_key? 'RACK_ENV'
 ENV['RAILS_ENV'] = ENV['RACK_ENV']
 
 class SvegSettings
@@ -52,12 +57,11 @@ class SvegSettings
   	Dir.mkdir(@book2pdf_dir) unless File.exists?(@book2pdf_dir)
 
     # DataMapper Initialization
-    #DataMapper.auto_migrate!  # blows up database
   	DataMapper::Model.raise_on_save_failure = true
   	database_url ="sqlite3://#{@data_dir}/#{@environment}.sqlite"
-  	database_url = "sqlite3://#{@data_dir}/test.sqlite" if @environment == :test
   	DataMapper.setup(:default, database_url)
   	DataMapper.finalize
+    DataMapper.auto_migrate! if @environment.eql? :test
   	DataMapper.auto_upgrade! # extends tables to match model
   	Delayed::Worker.destroy_failed_jobs = false
   	Delayed::Worker.backend.auto_upgrade!
