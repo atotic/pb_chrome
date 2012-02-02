@@ -24,7 +24,7 @@ require "fileutils"
 # sveg gets the request: post '/books/:id/pdf', passes it on to
 # Book.generate_pdf creates a delayed_job.
 # delayed_job (if executed), will call Book.generate_pdf_done|fail on completion.
-# delayed_job is BookToPDF.perform. It creates html files, schedules ChromeHTMLToPDFTask
+# delayed_job is BookToPDF.perform. It creates html files, schedules ChromePDFTask
 # tto 
 # 
 # chrome gets 
@@ -42,7 +42,7 @@ require "fileutils"
 
 module PB
 
-class ChromeHTMLToPDFTask
+class ChromePDFTask
   include DataMapper::Resource
   property :id,					 Serial
   
@@ -198,9 +198,9 @@ eos
 		@logger.info "Creating PDFs"
 
     pdf_files = []
- 		# Create ChromeHTMLToPDFTask for every page
+ 		# Create ChromePDFTask for every page
  		html_files.each_index do |index|
- 		  task = ChromeHTMLToPDFTask.create( {
+ 		  task = ChromePDFTask.create( {
  		    :html_file => html_files[index],
   			:pdf_file => File.join(pdf_dir, File.basename(html_file).sub(".html", ".pdf")),
   			:book_id => book.id,
@@ -219,7 +219,7 @@ eos
       Timeout.timeout(timeout) do
         remaining_tasks = [1]
         while remaining_tasks.length > 0
-          remaining_tasks = ChromeHTMLToPDFTask.all(:book_id => book.id, :processing_stage.not => PB::STAGE_DONE)
+          remaining_tasks = ChromePDFTask.all(:book_id => book.id, :processing_stage.not => PB::STAGE_DONE)
           sleep 1
         end
       end
@@ -228,14 +228,14 @@ eos
       timed_out = true
     end
 
-    converted =  ChromeHTMLToPDFTask.all(:book_id => book.id, :processing_stage.eql => PB::STAGE_DONE)
-    waiting =  ChromeHTMLToPDFTask.all(:book_id => book.id, :processing_stage.not => PB::STAGE_DONE)
-    failed = ChromeHTMLToPDFTask.all(:book_id => book.id, :has_error => true)
+    converted =  ChromePDFTask.all(:book_id => book.id, :processing_stage.eql => PB::STAGE_DONE)
+    waiting =  ChromePDFTask.all(:book_id => book.id, :processing_stage.not => PB::STAGE_DONE)
+    failed = ChromePDFTask.all(:book_id => book.id, :has_error => true)
   
     failed.each { |t| @logger.error("Book " + book.id + " html " + t.html_file_url + " err: " + t.error_message)}    
 
     # Remove the tasks
-    ChromeHTMLToPDFTask.all(:book_id => book.id).destroy
+    ChromePDFTask.all(:book_id => book.id).destroy
 
     raise ("PDF generation timed out after " + timeout + " seconds.") if timed_out
     raise ("PDF pages had errors in them, see error log for details.") if failed.length > 0

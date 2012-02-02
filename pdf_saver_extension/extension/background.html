@@ -14,15 +14,18 @@ function notifyProblem(msg) {
 	notification.show();
 }
 
-var activeRequestCount = 0;
-var MAX_REQUEST_COUNT = 1;
+// Globals holding tab loading status
+window.tabErrors = {}; // tabId => error mappings
+window.tabCompletion = {};
 
 function startPdfConversion(json) {
 	// open new tab
 	// load the url
 	// when document ready, do saveAsPdf
 	// in callback, post data back to server
-	function pdfDone(pdfData) {
+	function pdfDone(tab, pdfData) {
+		console.log("pdfDone");
+		chrome.tabs.remove(tab.id);
 		var xhr = new XMLHttpRequest();
 		var url = getServerUrl() + "pdf_done?id=" + json.id;
 		xhr.open("POST", url, true);
@@ -39,7 +42,9 @@ function startPdfConversion(json) {
 		xhr.send(pdfData);		
 	}
 	
-	function pdfFail(message) {
+	function pdfFail(tab, message) {
+		console.log("pdfFail " + message);
+		chrome.tabs.remove(tab.id);
 		var xhr = new XMLHttpRequest();
 		var url = getServerUrl() + "pdf_fail?id=" + json.id
 		xhr.open("POST", url, true);
@@ -49,46 +54,60 @@ function startPdfConversion(json) {
 		xhr.send(message);
 	}
 	
-	function tabCreated(Tab tab) {
-		if (tab.status != 'complete')	 // busy wait for timeout to complete
-			return setTimeout(function() { tabCreated(tab) }, 100);
-		options = {
-			tabId: tab.id,
-			dpi: 300,
-			margin: [0],
-			pageWidth: 612,
-			pageHeight: 792
+	function tabCreated(tab) {
+		var tabId = tab.id + "";
+		if (tabId in window.tabErrors) {
+			var err = window.tabErrors[tabId];
+			delete window.tabErrors[tabId];
+			pdfFail(tab, err);
+			return;
 		}
-		if ('dpi' in json) options.dpi = json.dpi;
-		if ('margin' in json) options.margin = json.margin;
-		if ('pageWidth' in json) options.pageWidth = pageWidth;
-		if ('pageHeight' in json) options.pageHeight = pageHeight;
-		chrome.pageCapture.saveAsPDF( options, function(pdfData) {
-			activeRequestCount--;
-			if ('lastError' in chrome.extension)
-				pdfFail(chrome.extension.lastError.message);
-			else
-				pdfDone(pdfData);
-		});
-		
+		else if (!(tabId in window.tabCompletion)) {
+			// loading still incomplete
+			console.log("waiting for tab completion");
+			setTimeout(function() { tabCreated(tab) }, 100);
+			return;
+		}
+		else { // tab loaded, generate pdf
+			delete window.tabCompletion[tabId];
+			options = {
+				tabId: tab.id,
+				dpi: 300,
+				margin: [0],
+				pageWidth: 612,
+				pageHeight: 792
+			}
+			if ('dpi' in json) options.dpi = json.dpi;
+			if ('margin' in json) options.margin = json.margin;
+			if ('pageWidth' in json) options.pageWidth = json.pageWidth;
+			if ('pageHeight' in json) options.pageHeight = json.pageHeight;
+			chrome.pageCapture.saveAsPDF( options, function(pdfData) {
+				if ('lastError' in chrome.extension)
+					pdfFail(tab, chrome.extension.lastError.message);
+				else
+					pdfDone(tab, pdfData);
+			});
+		}
 	}
-	activeRequestCount++;
 	chrome.tabs.create({'url': json.html_file_url}, tabCreated);
 }
 
+var debugMe =1;
 function pollForWork() {
-	if (activeRequestCount >= MAX_REQUEST_COUNT)
+/*	if (debugMe != 0)
 		return;
+	debugMe = 1;*/
 	var xhr = new XMLHttpRequest();
-	var url = getServerUrl() + "get_pdf_work";
+	var url = getServerUrl() + "poll_pdf_work";
 	xhr.open("GET", url, true);
 	xhr.onload = function(ev) {
 		if (xhr.status == 200)
-			startPdfConversion();
+			startPdfConversion(JSON.parse(xhr.responseText));
 		else if (xhr.status == 204)
 			;
-		else 
+		else {
 			notifyProblem("Error getting work " + xhr.status);
+		}
 	}
 	xhr.onerror = function(ev) {
 		notifyProblem("Error getting work " + xhr.status);
@@ -102,6 +121,17 @@ chrome.browserAction.onClicked.addListener(function(tab) {
 	startPdfConversion(tab);
 });
 
+// Get called by detect_failure.js
+chrome.extension.onRequest.addListener( function(request, sender, sendResponse) {
+	window.tabErrors[sender.tab.id + ""] =  request;
+});
 
+chrome.webNavigation.onErrorOccurred.addListener( function(details) {
+	console.log("Received error for " + details.tabId + " " + details.error);
+	window.tabErrors[details.tabId + ""] = details.error;
+});
+chrome.webNavigation.onCompleted.addListener( function(details) {
+	window.tabCompletion[details.tabId + ""] = true;
+});
 </script>
 </head>

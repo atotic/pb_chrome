@@ -4,7 +4,7 @@
       "clear_lso_data_enabled": true,
       "window_placement": {
          "always_on_top": false,
-         "bottom": 1080,
+         "bottom": 1124,
          "left": 9,
          "maximized": false,
          "right": 1049,
@@ -16,11 +16,11 @@
       },
       "window_placement_DevToolsApp": {
          "always_on_top": false,
-         "bottom": 1051,
-         "left": 532,
+         "bottom": 1271,
+         "left": 75,
          "maximized": false,
-         "right": 1468,
-         "top": 389,
+         "right": 1011,
+         "top": 147,
          "work_area_bottom": 1600,
          "work_area_left": 0,
          "work_area_right": 2496,
@@ -45,8 +45,8 @@
       "suggest_url": "{google:baseSuggestURL}search?{google:searchFieldtrialParameter}{google:instantFieldTrialGroupParameter}client=chrome&hl={language}&q={searchTerms}"
    },
    "dns_prefetching": {
-      "host_referral_list": [ 2, [ "http://tools.google.com/", [ "http://fonts.googleapis.com/", 1.7024140130513836, "http://themes.googleusercontent.com/", 1.7024140130513836, "http://tools.google.com/", 3.395465130655353, "http://www.google-analytics.com/", 1.7024140130513836, "http://www.google.com/", 2.548939571853368 ] ], [ "http://www.google.com/", [ "http://ssl.gstatic.com/", 1.46483360387744, "http://www.google.com/", 4.887586703355885 ] ] ],
-      "startup_list": [ 1, "http://ssl.gstatic.com/", "http://www.google.com/" ]
+      "host_referral_list": [ 2, [ "http://datamapper.org/", [ "http://datamapper.org/", 5.633112765079818, "http://www.google-analytics.com/", 1.609530833344805 ] ], [ "http://tools.google.com/", [ "http://fonts.googleapis.com/", 0.4255626874115187, "http://themes.googleusercontent.com/", 0.4255626874115187, "http://tools.google.com/", 0.848784875439216, "http://www.google-analytics.com/", 0.4255626874115187, "http://www.google.com/", 0.6371737814253676 ] ], [ "http://www.google.com/", [ "http://google.com/", 0.20720972028026588, "http://ssl.gstatic.com/", 1.5670400798246014, "http://www.google.com/", 6.429639265093738 ] ] ],
+      "startup_list": [ 1, "http://localhost:20011/", "http://ssl.gstatic.com/", "http://www.google.com/" ]
    },
    "download": {
       "directory_upgrade": true,
@@ -55,7 +55,7 @@
    "extensions": {
       "autoupdate": {
          "last_check": "12971997056624627",
-         "next_check": "12972520809365351"
+         "next_check": "12972688642388113"
       },
       "blacklistupdate": {
          "lastpingday": "12971952000941571",
@@ -123,6 +123,19 @@
          "nnioepmjbjjlflmdgjanlcmbjahljeeo": {
             "blacklist": true
          },
+         "ooljbphbcpnhhmkpljojmoehcgomcfkd": {
+            "active_permissions": {
+               "api": [ "notifications", "pageCapture", "tabs", "webNavigation" ],
+               "explicit_host": [ "\u003Call_urls\u003E", "http://*/*" ]
+            },
+            "from_bookmark": false,
+            "from_webstore": false,
+            "install_time": "12972520352512783",
+            "location": 4,
+            "newAllowFileAccess": true,
+            "path": "/Users/atotic/code/sinbook/pdf_saver_extension/extension",
+            "state": 1
+         },
          "pbglijbamgmlcpnnpbfjkbdeheejjloj": {
             "blacklist": true
          },
@@ -133,6 +146,7 @@
             "blacklist": true
          }
       },
+      "toolbar": [ "ooljbphbcpnhhmkpljojmoehcgomcfkd" ],
       "ui": {
          "developer_mode": true
       }
@@ -179,7 +193,7 @@
    "plugins": {
       "enabled_internal_pdf3": true,
       "enabled_nacl": true,
-      "last_internal_directory": "/Users/atotic/chromium/src/out/Debug/Chromium.app/Contents/Versions/18.0.976.0/Chromium Framework.framework/Internet Plug-Ins",
+      "last_internal_directory": "/Users/atotic/chromium/src/out/Release/Chromium.app/Contents/Versions/18.0.976.0/Chromium Framework.framework/Internet Plug-Ins",
       "plugins_list": [ {
          "enabled": true,
          "name": "Remoting Viewer",
@@ -287,7 +301,7 @@
       "name": "First user"
    },
    "sync_promo": {
-      "startup_count": 2,
-      "view_count": 2
+      "startup_count": 6,
+      "view_count": 9
    }
 }

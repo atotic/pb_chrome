@@ -31,32 +31,32 @@
    "show-first-run-bubble": false,
    "show-minimal-first-run-bubble": true,
    "shutdown": {
-      "num_processes": 1,
+      "num_processes": 3,
       "num_processes_slow": 0,
       "type": 1
    },
    "uninstall_metrics": {
       "installation_date2": "1327522578",
-      "launch_count": "15"
+      "launch_count": "67"
    },
    "user_experience_metrics": {
-      "session_id": 14,
+      "session_id": 66,
       "stability": {
-         "breakpad_registration_fail": 15,
+         "breakpad_registration_fail": 23,
          "breakpad_registration_ok": 0,
          "crash_count": 0,
-         "debugger_not_present": 15,
+         "debugger_not_present": 23,
          "debugger_present": 0,
          "exited_cleanly": true,
          "incomplete_session_end_count": 0,
-         "last_timestamp_sec": "1328045368",
-         "launch_count": 15,
-         "launch_time_sec": "1328045355",
+         "last_timestamp_sec": "1328213384",
+         "launch_count": 23,
+         "launch_time_sec": "1328213360",
          "page_load_count": 0,
          "renderer_crash_count": 0,
          "renderer_hang_count": 0,
          "session_end_completed": true,
-         "stats_buildtime": "1325766389",
+         "stats_buildtime": "1328109196",
          "stats_version": "18.0.976.0-devel"
       }
    },

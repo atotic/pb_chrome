@@ -1,7 +1,7 @@
 {
-  "name": "PDFrome",
+  "name": "pdf_saver_extension",
   "version": "1.0",
-  "description": "Bulk PDF conversion with Chrome",
+  "description": "PDF conversion with Chrome",
   "background_page": "background.html",
   "options_page": "options.html",
   "browser_action": {
@@ -13,6 +13,7 @@
 	 "pageCapture",
 	 "notifications",
 	 "http://*/",
+	 "webNavigation",
 	 "<all_urls>"
   ]
 }

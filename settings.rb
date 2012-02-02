@@ -9,7 +9,6 @@ require 'dm-migrations'
 require 'dm-transactions'
 require 'data_objects'
 
-
 DataMapper::Property::String.length(128) # must be declared before model definition
 
 # server code
@@ -20,6 +19,8 @@ require 'app/book_template'
 require 'app/command_stream'
 require 'app/book2pdf_job'
 
+#require 'ruby-debug'
+
 ENV['RACK_ENV'] = 'test' if ENV.has_key? 'TEST'
 ENV['RACK_ENV'] = 'development' unless ENV.has_key? 'RACK_ENV'
 ENV['RAILS_ENV'] = ENV['RACK_ENV']
@@ -29,7 +30,8 @@ class SvegSettings
   @root_dir = File.dirname(File.expand_path(__FILE__))
   @environment = ( ENV['RACK_ENV'] || :development ).to_sym # :production :development :test
   @book_templates_dir = File.join(@root_dir, "book-templates")
-
+  @test_dir = File.join(@root_dir, "test")
+  
   @data_dir = @environment == :test ? File.join(@root_dir, "test", "data") : File.join(@root_dir, "data")
   @tmp_dir = File.join(@data_dir, "tmp")
   @log_dir = File.join(@data_dir, "log")
@@ -37,13 +39,13 @@ class SvegSettings
   @photo_dir = File.join(@data_dir, "photo-storage") # photo storage directory
 	@book2pdf_dir = File.join(@data_dir, "pdf-books") # generated books
 	
-	@chrome_binary = "/Users/atotic/chromium/src/out/Debug/Chromium.app/Contents/MacOS/Chromium"
-	@chrome_dir = "/Users/atotic/chromium/src/out/Debug/Chromium.app"
+	@chrome_binary = "/Users/atotic/chromium/src/out/Release/Chromium.app/Contents/MacOS/Chromium"
+	@chrome_dir = "/Users/atotic/chromium/src/out/Release/Chromium.app"
 	@chrome_profile_dir = File.join(@root_dir, "pdf_saver_chrome_profile")
 	@pdf_toolkit_binary = "/usr/local/bin/pdftk"
 	
   class << self
-    attr_accessor :root_dir,:data_dir, :tmp_dir, :log_dir
+    attr_accessor :root_dir,:data_dir, :tmp_dir, :log_dir, :test_dir
     attr_accessor :environment
     attr_accessor :book_templates_dir, :photo_dir, :book2pdf_dir
     attr_accessor :chrome_binary, :chrome_dir, :chrome_profile_dir, :pdf_toolkit_binary
@@ -61,8 +63,8 @@ class SvegSettings
   	database_url ="sqlite3://#{@data_dir}/#{@environment}.sqlite"
   	DataMapper.setup(:default, database_url)
   	DataMapper.finalize
-    DataMapper.auto_migrate! if @environment.eql? :test
-  	DataMapper.auto_upgrade! # extends tables to match model
+#    DataMapper.auto_migrate! blows away the db
+#  	DataMapper.auto_upgrade! # extends tables to match model
   	Delayed::Worker.destroy_failed_jobs = false
   	Delayed::Worker.backend.auto_upgrade!
   end
