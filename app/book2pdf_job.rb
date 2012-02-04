@@ -1,6 +1,6 @@
 require "app/book"
 require "fileutils"
-
+require "svegutils"
 # PDF Generation is fully documented here, and implemented in many pieces
 #
 # Architecture discussion:
@@ -16,29 +16,11 @@ require "fileutils"
 # B) pdf_saver_extension Chrome extension: implement a new Chrome extension. 
 #    pdf_saver_extension polls pdf_saver_server for work, when it gets some converts page to HTML, and sends it
 # C) pdf_saver_server: Rack server that pdf_saver_extension polls for jobs, and submits jobs results to
-# 
-# Integrating these applications into Sveg
-# 
-# 3 servers: sveg, delayed_job, pdf_saver_server, and a Chrome instance work together
-# 
-# sveg gets the request: post '/books/:id/pdf', passes it on to
-# Book.generate_pdf creates a delayed_job.
-# delayed_job (if executed), will call Book.generate_pdf_done|fail on completion.
-# delayed_job is BookToPDF.perform. It creates html files, schedules ChromePDFTask
-# tto 
-# 
-# chrome gets 
-# PDFSaver Chrome extension converts html to pdf, and sends pdf to pdf_saver_server
-# pdf_saver_server
-# BookToPDF.perform creates local html files to be converted.
-# Then it opens local html files
-# The cost of using Chrome is a convoluted data flow, that happens because
-# Chrome PDF engine is not exposed by any Chrome API by default.
-# We patch Chrome and implement pageCapture.saveAsPDF js API.
-# pageCapture.saveAsPDF allows Chrome extensions to convert pages to from HTML => PDF. PDF comes back as a blob.
-# Chrome extensions cannot directly communicate with host OS. 
-# 
-# 
+# D) delayed_job: 
+#       BookToPDF.perform creates book html files, 
+#       posts ChromePDFTask to create PDFs,
+#       combines all page pdfs into the photo book
+
 
 module PB
 
@@ -133,15 +115,6 @@ class BookToPdf
 		cmd_line << " --print-background"
 		cmd_line << " --source #{html_file}"
 		cmd_line << " --output #{pdf_file}"
-		cmd_line
-	end
-	
-	def get_cmd_merge_pdf(book_pdf, pdf_files)
-	  cmd_line = SvegSettings.pdf_toolkit_binary
-		pdf_files.each do |pdf|
-			cmd_line << " " << pdf
-		end
-		cmd_line << " cat output #{book_pdf}"
 		cmd_line
 	end
 	
@@ -258,7 +231,7 @@ eos
     
   		# merge the pdfs
   		book_pdf = File.join(book_dir, "book.pdf")
-  		cmd_line = self.get_cmd_merge_pdf(book_pdf, pdf_files)
+  		cmd_line = CommandLine.get_merge_pdfs(book_pdf, pdf_files)
   		success = Kernel.system cmd_line
   		raise ("PDF merge crashed " + $?.to_s) unless success
   		@logger.info("PDF generation took " + (Time.now - start_time).to_s)

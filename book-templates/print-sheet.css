@@ -17,3 +17,6 @@ body {
 	font-size: 12px;
 	height: auto;
 }
+* {
+	-webkit-print-color-adjust: exact;
+}

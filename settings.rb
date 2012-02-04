@@ -7,6 +7,7 @@ require 'dm-core'
 require 'dm-validations'
 require 'dm-migrations'
 require 'dm-transactions'
+require 'dm-aggregates'
 require 'data_objects'
 
 DataMapper::Property::String.length(128) # must be declared before model definition
@@ -18,8 +19,6 @@ require 'app/photo'
 require 'app/book_template'
 require 'app/command_stream'
 require 'app/book2pdf_job'
-
-#require 'ruby-debug'
 
 ENV['RACK_ENV'] = 'test' if ENV.has_key? 'TEST'
 ENV['RACK_ENV'] = 'development' unless ENV.has_key? 'RACK_ENV'
@@ -60,11 +59,10 @@ class SvegSettings
 
     # DataMapper Initialization
   	DataMapper::Model.raise_on_save_failure = true
+#  	DataMapper::Logger.new(STDOUT, :debug)
   	database_url ="sqlite3://#{@data_dir}/#{@environment}.sqlite"
   	DataMapper.setup(:default, database_url)
   	DataMapper.finalize
-#    DataMapper.auto_migrate! blows away the db
-#  	DataMapper.auto_upgrade! # extends tables to match model
   	Delayed::Worker.destroy_failed_jobs = false
   	Delayed::Worker.backend.auto_upgrade!
   end
