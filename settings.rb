@@ -40,7 +40,7 @@ class SvegSettings
 	
 	@chrome_binary = "/Users/atotic/chromium/src/out/Release/Chromium.app/Contents/MacOS/Chromium"
 	@chrome_dir = "/Users/atotic/chromium/src/out/Release/Chromium.app"
-	@chrome_profile_dir = File.join(@root_dir, "pdf_saver_chrome_profile")
+	@chrome_profile_dir = File.join(@root_dir, "chrome_profile")
 	@pdf_toolkit_binary = "/usr/local/bin/pdftk"
 	
   class << self
