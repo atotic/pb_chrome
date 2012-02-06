@@ -1,4 +1,4 @@
-require 'settings'
+require 'config/settings'
 require 'logger'
 require 'log4r'
 require "sfl"
@@ -16,7 +16,6 @@ end
 
 class ::Logger; alias_method :write, :<<; end
 
-require 'ruby-debug'
 module PB
   # command line utilites
   class CommandLine
@@ -31,6 +30,21 @@ module PB
       pid
     end
     
+    def self.get_chromium_pid
+      ps = `ps -A -o pid,comm`.split("\n")
+      ids = ps.collect do |i| 
+        if i.include? SvegSettings.chrome_binary then
+          m = i.match(/(\d+)/)
+          m.length > 0 ? m[0].to_i : nil
+        else
+          nil
+        end
+      end
+      ids.compact!
+      ids.sort
+      ids.length > 0 ? ids[0] : false
+    end
+
     def self.launch_pdf_saver()
       Kernel.spawn({}, "bin/thin start -C pdf_saver_server.yml -e #{SvegSettings.environment.to_s}")
     end
