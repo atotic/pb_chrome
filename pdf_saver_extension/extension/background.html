@@ -81,15 +81,38 @@ function startPdfConversion(json) {
 			if ('margin' in json) options.margin = json.margin;
 			if ('pageWidth' in json) options.pageWidth = json.pageWidth;
 			if ('pageHeight' in json) options.pageHeight = json.pageHeight;
-			chrome.pageCapture.saveAsPDF( options, function(pdfData) {
-				if ('lastError' in chrome.extension)
-					pdfFail(tab, chrome.extension.lastError.message);
-				else
-					pdfDone(tab, pdfData);
-			});
+			debugger;
+			try {
+				chrome.pageCapture.saveAsPDF( options, function(pdfData) {
+					if ('lastError' in chrome.extension)
+						pdfFail(tab, chrome.extension.lastError.message);
+					else
+						pdfDone(tab, pdfData);
+				});
+			}
+			catch(ex) {
+				console.error("exception on saveAsPDF");
+				console.error(ex);
+			}
 		}
 	}
-	chrome.tabs.create({'url': json.html_file_url}, tabCreated);
+	function createTab(windowId) {
+		chrome.tabs.create({'windowId': windowId, 'url': json.html_file_url}, tabCreated);
+	}
+	// Must create new window if no windows are available
+	try {
+		chrome.windows.getCurrent(function(w) {
+			if (!w)
+				chrome.windows.create({ width: 800, height: 800}, function(w) { createTab(w.id)} );
+			else
+				createTab(w.id);
+		});
+	}
+	catch (e)
+	{
+		console.log("getCurrent threw exception");
+		chrome.windows.create({}, createTab());
+	}
 }
 
 var debugMe =1;

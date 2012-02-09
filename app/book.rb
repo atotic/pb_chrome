@@ -1,5 +1,5 @@
-require 'dm-validations'
 require 'dm-core'
+require 'dm-validations'
 require 'dm-migrations'
 require 'dm-timestamps'
 require 'json'
@@ -8,6 +8,9 @@ require 'app/user'
 require 'app/photo'
 require 'app/book_template'
 require 'app/command_stream'
+
+require 'config/delayed_job'
+
 module PB
 	
 class Book
@@ -17,12 +20,12 @@ class Book
 	property :created_at,		DateTime
 	property :updated_at,		DateTime
 	
-	property :title,				String,	 :required => true
-	property :pdf_location,	String
-	property :pdf_generate_error, String
+	property :title,				String,	 :length => 255, :required => true
+	property :pdf_location,	String, :length => 255
+	property :pdf_generate_error, String, :length => 255
 	property :pdf_generate_in_progress, Boolean, :default => false
 	property :page_order, Text, :lazy => false	# comma separated list of page ids.
-	property :template_name, String # name of the template
+	property :template_name, String, :length => 255 # name of the template
 	property :template,	 Text, :lazy => false	# template attributes, stored as json
 	
 	belongs_to :user
@@ -138,9 +141,15 @@ class Book
   
   def generate_pdf_fail(err_msg)
     self.pdf_location = ""
-    self.pdf_generate_error = err_msg
+    self.pdf_generate_error = err_msg[0..49]
     self.pdf_generate_in_progress = false
-    self.save
+    begin
+      self.save
+    rescue => ex
+      puts ex.message
+      puts ex.backtrace
+      puts self.errors
+    end
   end
 end
 

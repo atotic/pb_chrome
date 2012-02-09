@@ -1,6 +1,8 @@
-require "app/book"
 require "fileutils"
 require "svegutils"
+require 'config/delayed_job'
+require "app/book"
+
 # PDF Generation is fully documented here, and implemented in many pieces
 #
 # Architecture discussion:
@@ -31,10 +33,10 @@ class ChromePDFTask
 	property :created_at,		DateTime
 	property :updated_at,		DateTime
 	
-	property :html_file,    String, :required => true
-	property :pdf_file,     String, :required => true
+	property :html_file,    String, :length => 255, :required => true
+	property :pdf_file,     String, :length => 255, :required => true
 	property :book_id,      Integer, :required => true
-	property :html_file_url,String, :required => true
+	property :html_file_url,String, :length => 255, :required => true
 	property :pageWidth,    Integer,:required => true # page width
 	property :pageHeight,   Integer,:required => true # page height
 	
@@ -54,6 +56,15 @@ class ChromePDFTask
 			:pageHeight => self.pageHeight
 		}.to_json(*a)
 	end
+end
+
+class TestJob
+  def initialize(name)
+    @name = name
+  end
+  def perform
+    ::Delayed::Worker.logger.info("TestJob running with #{@name}");
+  end
 end
 
 # Create PDF file for a book
@@ -87,7 +98,7 @@ class BookToPdf
 	
 	# converts css units to pixels ex: 6in => 432 
 	def convertToPixels(val)
-		return val.to_i unless val =~ /^(\d+)\s*(\w+)$/i
+		return val.to_i unless val =~ /^(\d+\.*\d*)\s*(\w+)$/i
 		pixelConversion = {
 			"in" => 72,
 			"cm" => 28.35,
@@ -129,7 +140,7 @@ class BookToPdf
 		return [book_dir, photo_dir, pdf_dir]	  
   end
   
-  def prepare_html_files(book, book_dir)
+  def prepare_html_files(book, book_dir, photo_dir)
 		# copy css
 		FileUtils.cp(File.join(SvegSettings.book_templates_dir, "print-sheet.css"), book_dir);
 		# copy the images
@@ -172,37 +183,44 @@ eos
 
     pdf_files = []
  		# Create ChromePDFTask for every page
+ 		ChromePDFTask.all(:book_id => book.id).destroy
  		html_files.each_index do |index|
- 		  task = ChromePDFTask.create( {
+ 		  task = ChromePDFTask.new( {
  		    :html_file => html_files[index],
-  			:pdf_file => File.join(pdf_dir, File.basename(html_file).sub(".html", ".pdf")),
+  			:pdf_file => File.join(pdf_dir, File.basename(html_files[index]).sub(".html", ".pdf")),
   			:book_id => book.id,
-  			:html_file_url => "file:///" + File.absolute_path(html_files[index]),
+  			:html_file_url => "file://" + File.expand_path(html_files[index]),
   			:pageWidth => convertToPixels(book.pages[index].width),
   			:pageHeight => convertToPixels(book.pages[index].height)
  		  })
- 		  pdf_files << task.pdf_file
+ 		  begin
+   		  task.save
+   		  pdf_files << task.pdf_file
+   		rescue => ex
+   		  @logger.error ex.message
+   		  raise ex
+   		end
  		end
  		
  		# Tasks are converted to PDFs on a Chrome instance
- 		# Busywait until all tasks have been converted
- 		timeout = SvegSettings.environment != :production ? 60 : 1200
+ 		# Busywait until all tasks have been converted TODO
+ 		timeout_length = SvegSettings.environment != :production ? 60 : 1200
  		timed_out = false
     begin
-      Timeout.timeout(timeout) do
+      Timeout.timeout(timeout_length) do
         remaining_tasks = [1]
         while remaining_tasks.length > 0
-          remaining_tasks = ChromePDFTask.all(:book_id => book.id, :processing_stage.not => PB::STAGE_DONE)
+          remaining_tasks = ChromePDFTask.all(:book_id => book.id, :processing_stage.not => PB::ChromePDFTask::STAGE_DONE)
           sleep 1
         end
       end
     rescue Timeout::Error => e
-      @logger.error("PDF generation timed out after " + timeout + " seconds. Book: " + book.id)
+      @logger.error("PDF generation timed out after " + timeout_length.to_s + " seconds. Book: " + book.id)
       timed_out = true
     end
 
-    converted =  ChromePDFTask.all(:book_id => book.id, :processing_stage.eql => PB::STAGE_DONE)
-    waiting =  ChromePDFTask.all(:book_id => book.id, :processing_stage.not => PB::STAGE_DONE)
+    converted =  ChromePDFTask.all(:book_id => book.id, :processing_stage => PB::ChromePDFTask::STAGE_DONE)
+    waiting =  ChromePDFTask.all(:book_id => book.id, :processing_stage.not => PB::ChromePDFTask::STAGE_DONE)
     failed = ChromePDFTask.all(:book_id => book.id, :has_error => true)
   
     failed.each { |t| @logger.error("Book " + book.id + " html " + t.html_file_url + " err: " + t.error_message)}    
@@ -226,19 +244,27 @@ eos
   		raise "No such book" unless book
   		# create book directories inside pdf-books
   		book_dir, photo_dir, pdf_dir = prepare_directories(book)
-  		html_files = prepare_html_files(book, book_dir)
+  		html_files = prepare_html_files(book, book_dir, photo_dir)
       pdf_files = create_pdf_files(book, html_files, pdf_dir)
-    
   		# merge the pdfs
   		book_pdf = File.join(book_dir, "book.pdf")
+  		missing = pdf_files.collect{|f| File.exists?(f) ? nil : f}.compact
+  		while (missing.length > 0) do
+  		  @logger.warn("Waiting for PDF files #{missing.join} ")
+  		  missing = pdf_files.collect{ |f| File.exists?(f) ? nil : f}.compact
+		  end
+  		
   		cmd_line = CommandLine.get_merge_pdfs(book_pdf, pdf_files)
   		success = Kernel.system cmd_line
+  		# try again, sometimes we get weorid timing errors
+  		debugger unless success
   		raise ("PDF merge crashed " + $?.to_s) unless success
   		@logger.info("PDF generation took " + (Time.now - start_time).to_s)
   		# mark it in the book
   		book.generate_pdf_done(book_pdf)
   	rescue => ex
   	  book.generate_pdf_fail(ex.message)
+  	  raise ex
 	  end
 	end
 end
