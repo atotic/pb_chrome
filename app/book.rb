@@ -122,13 +122,12 @@ class Book
 	end
 	
 	def generate_pdf(force = false)
-	  #		BookToPdf.new(book.id).perform()
 	  return "Book PDF generation not started. There is already a build in progress." if self.pdf_generate_in_progress && !force
 	  self.pdf_location = nil
 	  self.pdf_generate_error = nil
 	  self.pdf_generate_in_progress = true
 	  save
-	  Delayed::Job.enqueue BookToPdf.new(self.id)
+	  Delayed::Job.enqueue BookToPdfPrepJob.new(self.id)
 	  return "Book PDF proof will be ready in a few minutes."
   end
   
