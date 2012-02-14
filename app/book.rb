@@ -51,16 +51,22 @@ class Book
 	end
 	
 	# manual removal of all associations
-	before :destroy do |book|
-		book.pages.each do | page|
-			page.destroy
-		end
-		book.photos.each do |photo|
+	def destroy_dependents
+		pages.destroy
+		# find photos that belong to book only  using SQL
+		# select photo_id from 
+		#  (select count() as cnt ,photo_id,book_id from pb_book_photos group by photo_id) 
+		# where cnt == 1 and book_id == #{book['id']}
+
+		# save photo list, so we can traverse it
+		p = photos.all.collect { |x| x }
+		# destroys the association
+    book_photos.destroy
+		p.each do |photo|
 			# destroy photos if we are the only book
-			photo.destroy if photo.books.count == 1
-		end
-		book.book_photos.each do |bp|
-			bp.destroy
+			success = true
+			success = photo.destroy if photo.books.count == 0
+			LOGGER.error "Could not destroy photo #{photo.id}" unless success
 		end
 	end
 	

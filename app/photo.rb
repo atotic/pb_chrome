@@ -48,6 +48,7 @@ class Photo
 	end
 	
 	before :destroy do |photo|
+	  LOGGER.info("destroying photo #{self['id']}#{display_name}")
 		PhotoStorage.destroyFile photo
 	end
 end
