@@ -7,9 +7,12 @@ require 'app/book'
 require 'eventmachine'
 require 'json'
 
+# High level overview at Architecture.txt:PROBLEM: GROUP EDITING
+
 module PB
 
-# Command represents 
+# ServerCommand is a single document operation
+# Creating a command causes it to be broadcast
 class ServerCommand
 	include DataMapper::Resource
 	
