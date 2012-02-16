@@ -154,20 +154,16 @@ class DeferrableBody
   include EventMachine::Deferrable
 
   def call(body)
-    body.each do |chunk|
-      @body_callback.call(chunk)
-    end
+    body.each { |chunk| @body_callback.call(chunk) }
   end
 
   def each(&blk)
     @body_callback = blk
   end
-  
+
   def <<(str)
   	@body_callback.call(str)
   	self
   end
-
 end
-
 end # module
