@@ -19,6 +19,30 @@ class User
 
 	has n, :books
 	has n, :photos
+
+	def save_to_session(env, expire = nil)
+		expire ||= Time.now + 1.days.to_i
+		env['rack.session']['user_id'] = self['id']
+		env['rack.session']['user_id_expires'] = expire.to_i
+		env['sveg.user'] = self
+	end
+
+	def self.restore_from_session(env)
+		user_id = env['rack.session']['user_id'].to_i
+		expire = env['rack.session']['user_id_expires']
+		expire_time = Time.at(expire.to_i)
+		return "user not logged in" unless expire_time > Time.now
+		env['sveg.user'] = PB::User.get(user_id)
+	end
+
+	def login(env)
+		save_to_session(env)
+	end
+
+	def logout(env)
+		env['rack.session'].delete('user_id')
+		env['rack.session'].delete('user_id_expires')
+	end
 end
 
 #
@@ -52,6 +76,8 @@ class AuthLogin
 		auth
 	end
 
+	def login
+	end
 end
 
 end

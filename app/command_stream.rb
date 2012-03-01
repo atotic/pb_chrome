@@ -6,7 +6,6 @@ require 'dm-timestamps'
 require 'app/book'
 require 'eventmachine'
 require 'json'
-
 # High level overview at Architecture.txt:PROBLEM: GROUP EDITING
 
 module PB
