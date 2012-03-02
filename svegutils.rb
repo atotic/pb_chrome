@@ -70,7 +70,7 @@ module PB
 	# Canonical middleware stack looks like this
 	# use Rack::Session::Cookie, {
 	#		:key => 'rack.session',
-	#		:coder => Coder.new,
+	#		:coder => PB::SvegSessionCoder.new,
 	#		:sidbits => 32,
 	#		:skip => true,	# Rack > 1.4
 	#		:defer => true, # Rack < 1.4

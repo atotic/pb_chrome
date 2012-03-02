@@ -39,7 +39,7 @@ class User
 		save_to_session(env)
 	end
 
-	def logout(env)
+	def self.logout(env)
 		env['rack.session'].delete('user_id')
 		env['rack.session'].delete('user_id_expires')
 	end
