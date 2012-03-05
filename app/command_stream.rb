@@ -74,6 +74,19 @@ class ServerCommand
 		return last_cmd.id if last_cmd
 		return 0;
 	end
+
+	def self.restore_from_headers(env)
+		stream_id = book_id = nil
+		stream_header = env['HTTP_X_SVEGSTREAM']
+		last_command_id = env['HTTP_X_SVEG_LASTCOMMANDID'].to_i
+		if stream_header
+			stream_id, book_id = stream_header.split(";")
+			book_id =  book_id.to_i
+		end
+		env['sveg.stream.id'] = stream_id
+		env['sveg.stream.last_command'] = last_command_id
+		env['sveg.stream.book'] = book_id
+	end
 end
 
 # Event machine classes

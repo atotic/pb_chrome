@@ -43,6 +43,10 @@ class User
 		env['rack.session'].delete('user_id')
 		env['rack.session'].delete('user_id_expires')
 	end
+
+	def to_s
+		"#{self.display_name}:#{self['id']}"
+	end
 end
 
 #
