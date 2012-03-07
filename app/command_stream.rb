@@ -1,27 +1,18 @@
-require 'dm-validations'
-require 'dm-core'
-require 'dm-migrations'
-require 'dm-timestamps'
-
 require 'app/book'
 require 'eventmachine'
 require 'json'
+
 # High level overview at Architecture.txt:PROBLEM: GROUP EDITING
 
 module PB
 
 # ServerCommand is a single document operation
 # Creating a command causes it to be broadcast
-class ServerCommand
-	include DataMapper::Resource
+class ServerCommand < Sequel::Model(:server_commands)
 	
-	property :id,						Serial 
-	property :created_at,		DateTime
-	property :updated_at,		DateTime
-	
-	property :payload,			Text, :lazy => false	# command-specific json payload
-	property :type,					String
-	belongs_to :book
+	plugin :timestamps
+
+	many_to_one :book
 	
 	def self.createAddPhotoCmd(book_id, photo, exclude_stream)
 		cmd = ServerCommand.new({
@@ -70,7 +61,7 @@ class ServerCommand
 	end
 	
 	def self.last_command_id(book_id)
-		last_cmd = ServerCommand.last(:book_id => book_id)
+		last_cmd = ServerCommand.filter(:book_id => book_id).order(:id).last
 		return last_cmd.id if last_cmd
 		return 0;
 	end
@@ -107,7 +98,7 @@ class CmdStreamBroadcaster
 		# send standard js streaming header
 		body << stream_id << ";" << " " * 1024 << ";" 
 		# send all the outstanding commands 
-		commands = ServerCommand.all(:id.gt => last_cmd_id, :book_id => book_id)
+		commands = ServerCommand.filter('(id > ?) AND (book_id = ?)', last_cmd_id, book_id)
 		commands.each { |cmd| body << self.encode_msg(cmd) }
 		# tell client they are up to date
 		self.send_stream_up_to_date(book_id, body);
@@ -145,8 +136,8 @@ private
 	
 	def self.encode_command(cmd)
 		{
-			:id => cmd.id,
-			:type => cmd.type,
+			:id => cmd.pk,
+			:type => cmd['type'],
 			:book_id => cmd.book_id,
 			:payload => JSON.parse(cmd.payload)
 		}.to_json		

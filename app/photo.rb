@@ -1,8 +1,4 @@
-require 'dm-validations'
-require 'dm-core'
-require 'dm-migrations'
-require 'dm-timestamps'
-
+require 'sequel'
 require 'app/book'
 require 'fileutils'
 require 'digest/md5'
@@ -11,19 +7,16 @@ module PB
 #
 # Photo represents photos in our system
 #
-class Photo
-  include DataMapper::Resource
-  
-  property :id,           Serial 
-	property :created_at,		DateTime
-	property :updated_at,		DateTime
+class Photo < Sequel::Model(:photos)
+  	
+#	property :display_name,	String
+#	property :storage,			String  # where is the image stored locally
+#	property :md5,					String  # md5 hash
+
+	plugin :timestamps
 	
-	property :display_name,	String
-	property :storage,			String  # where is the image stored locally
-	property :md5,					String  # md5 hash
-	
-	belongs_to :user
-	has n, :books, :through => Resource
+	many_to_one :user
+	many_to_many :books
 	
 	def to_json(*a)
 		{
@@ -47,9 +40,9 @@ class Photo
 		"/photo/" + self.id.to_s
 	end
 	
-	before :destroy do |photo|
-	  LOGGER.info("destroying photo #{self['id']}#{display_name}")
-		PhotoStorage.destroyFile photo
+	def before_destroy
+	  LOGGER.info("destroying photo #{self.pk}#{self.display_name}")
+		PhotoStorage.destroyFile self
 	end
 end
 
@@ -112,6 +105,7 @@ class PhotoStorage
 		end
 		photo.storage = ""
 		photo.md5 = ""
+		photo.save
 		LOGGER.info("photo file deleted")
 	end
 	

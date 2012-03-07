@@ -1,7 +1,3 @@
-require 'dm-validations'
-require 'dm-core'
-require 'dm-migrations'
-require 'dm-timestamps'
 require 'json'
 require 'nokogiri'
 require 'css_parser'
@@ -129,22 +125,22 @@ class BookTemplate
 		end
 	end
 	
-	def create_book(user, params)
+	def create_book(user, book_params)
 		# sanitize params
-		valid_props = PB::Book.properties.field_map
-		clean_params = {}
-		params.each{ |k, v| clean_params[k] = v if valid_props.has_key?(k)}
-		book = Book.new(user, clean_params)
+		book_params[:user_id] = user.pk
+		book_params[:template_name] = @name
+		book = Book.new()
+		book.set_fields(book_params, [:user_id, :title, :template_name, :template])
 		book.save
 		self.get_default_pages.each do |page|
-			book.pages << page
+			book.add_page page
 			page.save # id is created here
 			if book.page_order
 				book.page_order += ","
 			else
 				book.page_order = ""
 			end
-			book.page_order += page.id.to_s
+			book.page_order += page.pk.to_s
 		end
 		book.save
 		book

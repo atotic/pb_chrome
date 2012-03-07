@@ -1,28 +1,17 @@
-require 'dm-validations'
-require 'dm-core'
-require 'dm-migrations'
-require 'dm-timestamps'
-
 require 'app/book'
-
+require 'sequel'
 module PB
 	
-class User
-  include DataMapper::Resource
+class User < Sequel::Model(:users)
   
-  property :id,        		Serial        # primary serial key
-	property :created_at,		DateTime
-	property :updated_at,		DateTime
+ 	plugin :timestamps
 
-  property :display_name,	String
- 	property :is_administrator,   Boolean, :default => false
-
-	has n, :books
-	has n, :photos
+	one_to_many :books
+	one_to_many :photos
 
 	def save_to_session(env, expire = nil)
 		expire ||= Time.now + 1.days.to_i
-		env['rack.session']['user_id'] = self['id']
+		env['rack.session']['user_id'] = self.pk
 		env['rack.session']['user_id_expires'] = expire.to_i
 		env['sveg.user'] = self
 	end
@@ -32,7 +21,7 @@ class User
 		expire = env['rack.session']['user_id_expires']
 		expire_time = Time.at(expire.to_i)
 		return "user not logged in" unless expire_time > Time.now
-		env['sveg.user'] = PB::User.get(user_id)
+		env['sveg.user'] = self[user_id]
 	end
 
 	def login(env)
@@ -45,9 +34,11 @@ class User
 	end
 
 	def to_s
-		"#{self.display_name}:#{self['id']}"
+		"#{self.display_name}:#{self.pk}"
 	end
+
 end
+
 
 #
 # Auth classes
@@ -56,28 +47,34 @@ end
 
 # AuthLogin is a simple username/pw login in theory
 # For now, it is just username.
-class AuthLogin
-	include DataMapper::Resource
+class AuthLogin < Sequel::Model(:auth_logins)
 	
-	property :login_id,			String, :key => true
-	property :created_at,		DateTime
-	property :updated_at,		DateTime
-	
-	belongs_to :user	# user this authorization is for
+	plugin :timestamps
 
-	# common auth properties
+#	property :login_id,			String, :key => true
+#	property :created_at,		DateTime
+#	property :updated_at,		DateTime
+# common auth properties
 #	property :user_id,			Integer		# pointer to User record
-	property :created_on,		DateTime, :default => lambda { |r,p| Time.now }
-	property :last_login,		DateTime, :default => lambda { |r,p| Time.now }
+#	property :created_on,		DateTime, :default => lambda { |r,p| Time.now }
+#	property :last_login,		DateTime, :default => lambda { |r,p| Time.now }
+	
+	set_primary_key :login_id
+
+	many_to_one :user  # user this authoricazion is for
 
 	# creates login
-	def self.create(login_id)
-		user = User.new({:display_name => login_id})
-		user.is_administrator = true if login_id.eql? "atotic"
-		user.save
-		auth = AuthLogin.new({:login_id => login_id, :user_id => user.id} )
-		auth.save
-		auth
+	def self.create_with_user(login_id)
+		DB.transaction do
+			user = User.new({:display_name => login_id})
+			user.is_administrator = true if login_id.eql? "atotic"
+			user.save
+			unrestrict_primary_key
+			auth = AuthLogin.new({:login_id => login_id, :user_id => user.id} )
+			auth.save
+			restrict_primary_key
+			auth
+		end
 	end
 
 	def login

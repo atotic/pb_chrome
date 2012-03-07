@@ -1,4 +1,5 @@
 require 'config/settings'
+require 'config/db'
 require 'log4r'
 require "sfl"
 require 'app/user'

@@ -27,36 +27,33 @@ require "app/book"
 
 module PB
 
-class ChromePDFTask
-  include DataMapper::Resource
-  property :id,					 Serial
-  
-	property :created_at,		DateTime
-	property :updated_at,		DateTime
+class ChromePDFTask < Sequel::Model(:chrome_pdf_tasks)
 	
-	property :book_dir,     String, :default => "", :length => 255 # only used to delete all files on abort
-	property :book_pdf,     String, :length => 255, :required => true # used to generate final pdf
-	property :html_file,    String, :length => 255, :required => true
-	property :pdf_file,     String, :length => 255, :required => true
-	property :book_id,      Integer, :required => true
-	property :html_file_url,String, :length => 255, :required => true
-	property :pageWidth,    Integer,:required => true # page width
-	property :pageHeight,   Integer,:required => true # page height
+#	property :book_dir,     String, :default => "", :length => 255 # only used to delete all files on abort
+#	property :book_pdf,     String, :length => 255, :required => true # used to generate final pdf
+#	property :html_file,    String, :length => 255, :required => true
+#	property :pdf_file,     String, :length => 255, :required => true
+#	property :book_id,      Integer, :required => true
+#	property :html_file_url,String, :length => 255, :required => true
+#	property :page_width,    Integer,:required => true # page width
+#	property :page_height,   Integer,:required => true # page height
+
+	plugin :timestamps
 	
 	STAGE_WAITING = 0 # created
 	STAGE_DISPATCHED_TO_CHROME = 1 # Chrome got the message
 	STAGE_DONE = 2
-	property :processing_stage, Integer, :default =>  STAGE_WAITING # processing stage
+#	property :processing_stage, Integer, :default =>  STAGE_WAITING # processing stage
 
-	property :has_error,        Boolean, :default => false
-	property :error_message,    String
+#	property :has_error,        Boolean, :default => false
+#	property :error_message,    String
 	
 	def to_json(*a)
 		{
 			:id => self.id,
 			:html_file_url => self.html_file_url,
-			:pageWidth => self.pageWidth,
-			:pageHeight => self.pageHeight
+			:pageWidth => self.page_width,
+			:pageHeight => self.page_height
 		}.to_json(*a)
 	end
 end
@@ -78,7 +75,7 @@ class BookToPdfCompleteJob
   
   def book_gone_fail
     @logger.info("Book PDF conversion aborted, book is gone #{@book_id}")
-    tasks = PB::ChromePDFTask.all(:book_id => @book_id)
+    tasks = PB::ChromePDFTask.filter(:book_id => @book_id)
     return unless tasks.length > 0
     `rm -rf #{tasks[0].book_dir}` if tasks[0].book_dir
     tasks.destroy
@@ -89,13 +86,13 @@ class BookToPdfCompleteJob
     failed.each do |t| 
       @logger.error "Book #{book.id} page #{t.html_file_url} err: #{t.error_message}"
     end
-    PB::ChromePDFTask.all(:book_id => @book_id).destroy
+    PB::ChromePDFTask.filter(:book_id => @book_id).destroy
     book.generate_pdf_fail "Some book pages could not be converted."
   end
   
   def generic_fail(book, msg)
     @logger.error "Book PDF conversion failed {@book_id} {msg}"
-    PB::ChromePDFTask.all(:book_id => @book_id).destroy
+    PB::ChromePDFTask.filter(:book_id => @book_id).each { |t| t.destroy }
     book.generate_pdf_fail "Unexpected PDF generation problem: #{msg}"
   end
   
@@ -103,7 +100,7 @@ class BookToPdfCompleteJob
  	  @logger = Delayed::Worker.logger
     @logger.info("BookToPdfCompleteJob started #{@book_id}")
   	start_time = Time.now
-    book = PB::Book.get(@book_id)
+    book = PB::Book[@book_id]
     unless book
       @logger.warn("BookToPdfCompleteJob called, but book has been deleted")
       book_gone_fail
@@ -111,18 +108,18 @@ class BookToPdfCompleteJob
     return unless book
   
     # no conversion unless all pages have been processed
-    converted =  PB::ChromePDFTask.all(:book_id => book.id, 
+    converted =  PB::ChromePDFTask.filter(:book_id => book.id, 
       :processing_stage => PB::ChromePDFTask::STAGE_DONE)
-    waiting =  PB::ChromePDFTask.all(:book_id => book.id, 
+    waiting =  PB::ChromePDFTask.filter(:book_id => book.id, 
       :processing_stage.not => PB::ChromePDFTask::STAGE_DONE)
     return if waiting.length > 0
   
     # conversion failed if pages failed
-    failed = PB::ChromePDFTask.all(:book_id => book.id, :has_error => true)
+    failed = PB::ChromePDFTask.filter(:book_id => book.id, :has_error => true)
     return pages_fail(book, failed_tasks) if failed.length > 0
   
     # success, merge pdfs
-    tasks = PB::ChromePDFTask.all(:book_id => book.id, :order => [:id.asc ])
+    tasks = PB::ChromePDFTask.filter(:book_id => book.id).order(:id)
     return if tasks.empty? # book was already generated
 
     pdf_files = tasks.map { |t| t.pdf_file }
@@ -133,7 +130,7 @@ class BookToPdfCompleteJob
   	debugger unless success
     return generic_fail book, "PDF merge crashed. #{$?.to_s}" unless success
   	book.generate_pdf_done(book_pdf)
-  	PB::ChromePDFTask.all(:book_id => @book_id).destroy
+  	PB::ChromePDFTask.filter(:book_id => @book_id).destroy
   	@logger.info("BookToPdfCompleteJob took " + (Time.now - start_time).to_s)
   	rescue => ex
   	  book.generate_pdf_fail(ex.message) if book
@@ -165,7 +162,7 @@ class BookToPdfPrepJob
 			if match
 				front, href, photo, image_id, size, back = match[1], match[2], match[3], match[4], match[5], match[6]
 				photo = "./photos/"
-				image_id = image_id + File.extname(PB::Photo.get(image_id).storage)
+				image_id = image_id + File.extname(PB::Photo[image_id].storage)
 				split[i] = front + href + photo + image_id + back
 			end
 		end
@@ -221,6 +218,8 @@ class BookToPdfPrepJob
 		FileUtils.cp(File.join(SvegSettings.book_templates_dir, "print-sheet.css"), @book_dir);
 		# copy the images
 		@book.photos.each { |photo| FileUtils.cp(photo.file_path(), @photo_dir) }
+		# TODO copy template images
+
 		# create the html files
 		i = 0
 		index = "<html><head><title>#{@book.title}</title></head><body>"
@@ -255,7 +254,7 @@ eos
     book_pdf = File.join(@book_dir, "book.pdf")
 		@logger.info "Creating PDFs"
  		# Create ChromePDFTask for every page
- 		PB::ChromePDFTask.all(:book_id => @book.id).destroy
+ 		PB::ChromePDFTask.filter(:book_id => @book.id).each { |t| t.destroy }
  		@html_files.each_index do |index|
  		  task = PB::ChromePDFTask.new( {
  		    :book_dir => @book_dir,
@@ -264,8 +263,8 @@ eos
   			:pdf_file => File.join(@pdf_dir, File.basename(@html_files[index]).sub(".html", ".pdf")),
   			:book_id => @book.id,
   			:html_file_url => "file://" + File.expand_path(@html_files[index]),
-  			:pageWidth => convertToPixels(@book.pages[index].width),
-  			:pageHeight => convertToPixels(@book.pages[index].height)
+  			:page_width => convertToPixels(@book.pages[index].width),
+  			:page_height => convertToPixels(@book.pages[index].height)
  		  })
  		  begin
    		  task.save
@@ -283,7 +282,7 @@ eos
   	  @logger = Delayed::Worker.logger
   	  @logger.info("Book2PdfPrep started #{@book_id}");
   		start_time = Time.now
-  		@book = PB::Book.get(@book_id)
+  		@book = PB::Book[@book_id]
   		raise "No such book" unless @book
   		# create book directories inside pdf-books
   		prepare_directories
@@ -294,7 +293,7 @@ eos
   	  @logger.error "BookToPdfPrepJob failed #{@book_id} #{ex.message}"
   	  @logger.error ex.backtrace
   	  @book.generate_pdf_fail(ex.message)
-  	  PB::ChromePDFTask.all(:book_id => @book.id).destroy
+  	  PB::ChromePDFTask.filter(:book_id => @book.id).destroy
 	  end
 	end
 end
