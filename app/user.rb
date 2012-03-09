@@ -2,8 +2,8 @@ require 'app/book'
 require 'sequel'
 module PB
 	
-class User < Sequel::Model(:users)
-  
+class User < Sequel::Model
+
  	plugin :timestamps
 
 	one_to_many :books
@@ -61,7 +61,7 @@ class AuthLogin < Sequel::Model(:auth_logins)
 	
 	set_primary_key :login_id
 
-	many_to_one :user  # user this authoricazion is for
+	many_to_one :user # user this authoricazion is for
 
 	# creates login
 	def self.create_with_user(login_id)

@@ -8,10 +8,10 @@ module PB
 # Photo represents photos in our system
 #
 class Photo < Sequel::Model(:photos)
-  	
+		
 #	property :display_name,	String
-#	property :storage,			String  # where is the image stored locally
-#	property :md5,					String  # md5 hash
+#	property :storage,			String # where is the image stored locally
+#	property :md5,					String # md5 hash
 
 	plugin :timestamps
 	
@@ -20,10 +20,10 @@ class Photo < Sequel::Model(:photos)
 	
 	def to_json(*a)
 		{
-      :id => self.id,
-      :display_name => self.display_name,
-      :md5 => self.md5
-    }.to_json(*a)
+			:id => self.id,
+			:display_name => self.display_name,
+			:md5 => self.md5
+		}.to_json(*a)
 	end
 
 	def file_path(*size_arg) # call with no args for full size, or specify size as 'icon'|'display'
@@ -41,7 +41,7 @@ class Photo < Sequel::Model(:photos)
 	end
 	
 	def before_destroy
-	  LOGGER.info("destroying photo #{self.pk}#{self.display_name}")
+		LOGGER.info("destroying photo #{self.pk}#{self.display_name}")
 		PhotoStorage.destroyFile self
 	end
 end
@@ -82,8 +82,8 @@ class PhotoStorage
 		ext = ".img" unless [".jpg", ".gif", ".png"].index(ext)
 		destName = photo.id.to_s + ext
 		dest = File.join(dir, destName)
-		FileUtils.mv( file_path,  dest)
-	  photo.md5 = Digest::MD5.hexdigest(File.read(dest))
+		FileUtils.mv(file_path, dest)
+		photo.md5 = Digest::MD5.hexdigest(File.read(dest))
 		photo.storage = destName
 		photo.save
 		self.createDifferentSizes(photo)		

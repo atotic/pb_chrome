@@ -9,23 +9,23 @@
       "clear_lso_data_enabled": true,
       "window_placement": {
          "always_on_top": false,
-         "bottom": 1124,
-         "left": 9,
+         "bottom": 844,
+         "left": 22,
          "maximized": false,
-         "right": 1049,
-         "top": 28,
-         "work_area_bottom": 1600,
+         "right": 822,
+         "top": 44,
+         "work_area_bottom": 1534,
          "work_area_left": 0,
-         "work_area_right": 2496,
+         "work_area_right": 2560,
          "work_area_top": 22
       },
       "window_placement_DevToolsApp": {
          "always_on_top": false,
-         "bottom": 1271,
-         "left": 75,
+         "bottom": 1440,
+         "left": 199,
          "maximized": false,
-         "right": 1011,
-         "top": 147,
+         "right": 1135,
+         "top": 74,
          "work_area_bottom": 1600,
          "work_area_left": 0,
          "work_area_right": 2496,
@@ -50,8 +50,8 @@
       "suggest_url": "{google:baseSuggestURL}search?{google:searchFieldtrialParameter}{google:instantFieldTrialGroupParameter}client=chrome&hl={language}&q={searchTerms}"
    },
    "dns_prefetching": {
-      "host_referral_list": [ 2, [ "http://www.google.com/", [ "http://ssl.gstatic.com/", 2.6037003999999997, "http://www.google.com/", 4.585621599999999 ] ] ],
-      "startup_list": [ 1, "http://localhost:20011/", "http://ssl.gstatic.com/", "http://www.google.com/" ]
+      "host_referral_list": [ 2, [ "http://www.google.com/", [ "http://ssl.gstatic.com/", 1.9374973208992063, "http://www.google.com/", 8.378540965652762 ] ] ],
+      "startup_list": [ 1, "http://localhost:27000/", "http://ssl.gstatic.com/", "http://www.google.com/" ]
    },
    "download": {
       "directory_upgrade": true,
@@ -59,12 +59,12 @@
    },
    "extensions": {
       "autoupdate": {
-         "last_check": "12972896029708057",
-         "next_check": "12972907794256200"
+         "last_check": "12973917464225993",
+         "next_check": "12975622586020477"
       },
       "blacklistupdate": {
-         "lastpingday": "12972816001022657",
-         "version": "0.0.0.17"
+         "lastpingday": "12973852800470357",
+         "version": "0.0.0.89"
       },
       "chrome_url_overrides": {
          "bookmarks": [ "chrome-extension://eemcgdkfndhakfknompkggombfjjjeno/main.html" ]
@@ -83,6 +83,9 @@
             "app_launcher_ordinal": "n",
             "page_ordinal": "n"
          },
+         "ahjfgnikolodijnpakeknpilnemojlhc": {
+            "blacklist": true
+         },
          "alcbnnpmipohgdllkkglhkbncijplago": {
             "blacklist": true
          },
@@ -90,6 +93,12 @@
             "blacklist": true
          },
          "cbbjhegipokkofhhicbckicchjpcpeni": {
+            "blacklist": true
+         },
+         "cihlkpohodpdkdnfalhdkhhlhmhffmbe": {
+            "blacklist": true
+         },
+         "coajchbkdbfhmhbgcjepiofllfjjcpfp": {
             "blacklist": true
          },
          "danapgfidmepmcfbjjacceiaiiioieio": {
@@ -107,10 +116,28 @@
          "dpgenihgggagjjggfocjceeobjkadcbc": {
             "blacklist": true
          },
+         "ebdcdchjcndpjhehacedepnggfdbfkpn": {
+            "blacklist": true
+         },
          "efhjelcghjkfigiagdfbfilndaffpmdj": {
             "blacklist": true
          },
          "efnaljpgehfilpmkhobibbjceeeondmn": {
+            "blacklist": true
+         },
+         "fmonlemffgbabjifjfaoamdflijecdbk": {
+            "blacklist": true
+         },
+         "fpbippbofbmgmbojjmgfcifpmdaelcmd": {
+            "blacklist": true
+         },
+         "gjkbghdignnlcknknflbigpammebiolo": {
+            "blacklist": true
+         },
+         "gkjeccpmibljcfpfapfljciimedljpnm": {
+            "blacklist": true
+         },
+         "hcapokajkngndbglnfglpfdpoeidmpha": {
             "blacklist": true
          },
          "hcpndbchnlgojmnijaldkicigmihmdca": {
@@ -120,6 +147,9 @@
             "blacklist": true
          },
          "hhfiljkpjapjjphcocclhhaldpfkkjbi": {
+            "blacklist": true
+         },
+         "hhjmkijkgojfifipdgmiemghfikbohcm": {
             "blacklist": true
          },
          "hpibmhghjndideebpackbdlpncgkcppp": {
@@ -132,6 +162,15 @@
             "blacklist": true
          },
          "imfbomjbodpfgfhfahlgkkcllmhbelhk": {
+            "blacklist": true
+         },
+         "iomejadoamfilglofmeaffghddcgapmf": {
+            "blacklist": true
+         },
+         "jjnkfllhcgkgnfbekpnmoikpfihpjfli": {
+            "blacklist": true
+         },
+         "kbipembkfhbdmkkkfbigmohilmknjnof": {
             "blacklist": true
          },
          "kcanfkmhccbaheheaackijegkclkaeic": {
@@ -161,19 +200,31 @@
          "mjgobkikdipfikmaoakdcdbicpioljgg": {
             "blacklist": true
          },
+         "mkobblpffgbncfhijabakfafmkjdmmnm": {
+            "blacklist": true
+         },
          "mlmegahemifabfmdnndafagnncfbnahn": {
             "blacklist": true
          },
          "mlmmbepkgelpbenpobinockmiehdahai": {
             "blacklist": true
          },
+         "mnichagcickblneeijmfnmoiakigmmhf": {
+            "blacklist": true
+         },
          "ndiogongcmocdgjciemhagfhpjamehpe": {
+            "blacklist": true
+         },
+         "nidodbfomffkfabciljelkbdiabkeehe": {
             "blacklist": true
          },
          "nmphbnbmgfccfhcmibikmhcgajjpelpf": {
             "blacklist": true
          },
          "nnioepmjbjjlflmdgjanlcmbjahljeeo": {
+            "blacklist": true
+         },
+         "onpnpccdagncipgnoofbhchlbajcjnkd": {
             "blacklist": true
          },
          "ooljbphbcpnhhmkpljojmoehcgomcfkd": {
@@ -183,7 +234,7 @@
             },
             "from_bookmark": false,
             "from_webstore": false,
-            "install_time": "12972520352512783",
+            "install_time": "12973251057144702",
             "location": 4,
             "newAllowFileAccess": true,
             "path": "/Users/atotic/code/sinbook/pdf_saver_extension/extension",
@@ -195,7 +246,13 @@
          "pfcelnbmkeoaeicedjomcjkcammlkdbk": {
             "blacklist": true
          },
+         "pjdhkkcnlbfebiokpeghfffajaabahfo": {
+            "blacklist": true
+         },
          "pkbbbncikcipejaiiiioboongndhmjgl": {
+            "blacklist": true
+         },
+         "pkbkkendemaimikinaefldfljliecapm": {
             "blacklist": true
          },
          "pnpgiaejfbdapllkchhgchjpdbcpiooa": {
@@ -216,22 +273,36 @@
    "instant": {
       "enabled_time": "12971996178142202"
    },
+   "net": {
+      "http_server_properties": {
+         "clients2.google.com:443": {
+            "settings": [ {
+               "id": 5,
+               "value": 32
+            }, {
+               "id": 6,
+               "value": 0
+            } ],
+            "supports_spdy": true
+         }
+      }
+   },
    "ntp": {
       "app_page_names": [ "Apps" ],
-      "promo_build": 0,
+      "promo_build": 8,
       "promo_closed": false,
-      "promo_end": 1323071940.0,
+      "promo_end": 1329551880.0,
       "promo_feature_mask": 0,
-      "promo_group": 10,
-      "promo_group_max": 0,
+      "promo_group": 33,
+      "promo_group_max": 99,
       "promo_group_timeslice": 0,
       "promo_is_logged_in_to_plus": false,
-      "promo_line": "\u003Ca href=\"http://www.google.com/chromebook/index.html#utm_campaign=en&utm_source=en-ntp-holidays-na-us-bkws&utm_medium=ntp-holidays\"\u003EGet a Chromebook for the holidays\u003C/a\u003E: the computer powered by Chrome.",
-      "promo_platform": 0,
-      "promo_resource_cache_update": "1328419146.971073",
-      "promo_start": 1321862280.0,
+      "promo_line": "Have an Android 4.0 phone or tablet? Learn more about \u003Ca href=\"http://chrome.blogspot.com/2012/02/introducing-chrome-for-android.html\"\u003EChrome for Android Beta\u003C/a\u003E.",
+      "promo_platform": 7,
+      "promo_resource_cache_update": "1331147274.699545",
+      "promo_start": 1329465480.0,
       "promo_views": 0,
-      "promo_views_max": 0
+      "promo_views_max": 9
    },
    "plugins": {
       "enabled_internal_pdf3": true,

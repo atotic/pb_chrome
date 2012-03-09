@@ -1,3 +1,5 @@
+# Utility classes. Self-contained, can  be used by any server
+
 require 'config/settings'
 require 'config/db'
 require 'log4r'
@@ -19,7 +21,7 @@ end
 #class Log4r::Logger; alias_method :write, :debug; end
 
 module PB
-	# command line utilites
+
 	SVEG_FORMATTER =Log4r::PatternFormatter.new(
 		:pattern => "%d %l %c %m",
 		:date_pattern => "%-m/%e %I:%M:%S"
@@ -33,16 +35,16 @@ module PB
 	end
 
 	def self.create_server_logger(name) 
-		l = Log4r::Logger.new(name)
+		return @@logger if @@logger
+		@@logger = Log4r::Logger.new(name)
 		file_out = Log4r::FileOutputter.new("#{name}.info", { 
 			:filename => File.join(SvegSettings.log_dir, "#{name}.info" ), 
 			:formatter => PB::SVEG_FORMATTER })
 		# root outputs everything, so we can use it in libraries
-		l.add file_out
-		l.add Log4r::Outputter.stdout if SvegSettings.environment == :development
-		l.add Log4r::GrowlOutputter.new('growlout') if SvegSettings.environment == :development
-		@@logger = l
-		l
+		@@logger.add file_out
+		@@logger.add Log4r::Outputter.stdout if SvegSettings.environment == :development
+		@@logger.add Log4r::GrowlOutputter.new('growlout') if SvegSettings.environment == :development
+		@@logger
 	end
 
 	# command line utilities
@@ -73,6 +75,26 @@ module PB
 		end
 	end
 
+	# JSON session encoder, development use only
+	class SvegSessionCoder 
+		def encode(str)
+			JSON.generate str
+		end
+		def decode(str)
+			return nil if str.nil?
+			p = JSON.parse str
+			if p && p.has_key?('__FLASH__') then
+				# flash keys are symbols, not strings, fix json encoding
+				p['__FLASH__'].each_key do |key|
+					if key.class == String then
+						p['__FLASH__'][key.to_sym] = p['__FLASH__'].delete(key)
+					end
+				end
+			end
+			p
+		end
+	end
+
 	# Sveg session maintenance
 	# sets env['sveg.user'] to logged in user
 	# Saves flash hash only if it has changed
@@ -91,6 +113,13 @@ module PB
 	# api test in svegsession_test.rb
 	class SvegSession
 
+		COOKIE_OPTIONS = {
+			:key => 'rack.session',
+			:coder => PB::SvegSessionCoder.new,
+			:sidbits => 32,
+			:skip => true,	# Rack > 1.4
+			:defer => true, # Rack < 1.4
+		}
 		def initialize(app)
 			@log_access = SvegSettings.environment == :development
 			@app = app
@@ -103,13 +132,13 @@ module PB
 			return if /assets/ =~ env["PATH_INFO"] 
 			PB.logger.error "HTTP ERROR" if status >= 400
 			PB.logger.info FORMAT % [
-            env["sveg.user"] || "-",
-            env["REQUEST_METHOD"],
-            env["PATH_INFO"],
-            env["QUERY_STRING"].empty? ? "" : "?"+env["QUERY_STRING"],
-            env["HTTP_VERSION"],
-            status.to_s[0..3],
-            time_taken ]
+						env["sveg.user"] || "-",
+						env["REQUEST_METHOD"],
+						env["PATH_INFO"],
+						env["QUERY_STRING"].empty? ? "" : "?"+env["QUERY_STRING"],
+						env["HTTP_VERSION"],
+						status.to_s[0..3],
+						time_taken ]
 		end
 
 		def call(env)
@@ -125,7 +154,7 @@ module PB
 		def before(env, request)
 			# load user to sveg.user
 			PB::User.restore_from_session(env)
-			PB::ServerCommand.restore_from_headers(env)
+			PB::BrowserCommand.restore_from_headers(env)
 		end
 
 		def after(env, request, status, headers, body)
@@ -145,24 +174,29 @@ module PB
 		end
 	end
 
-	# JSON session encoder, development use only
-	class SvegSessionCoder 
-		def encode(str)
-			JSON.generate str
+	class Security
+		def self.xhr?(env)
+			env["HTTP_X_REQUESTED_WITH"] == "XMLHttpRequest"
 		end
-		def decode(str)
-			return nil if str.nil?
-			p = JSON.parse str
-			if p && p.has_key?('__FLASH__') then
-				# flash keys are symbols, not strings, fix json encoding
-				p['__FLASH__'].each_key do |key|
-					if key.class == String then
-						p['__FLASH__'][key.to_sym] = p['__FLASH__'].delete(key)
-					end
-	 			end
-			end
-			p
-		end
-	end
 
+		def self.user_must_be_logged_in(env)
+			return if env['sveg.user']
+			raise "User not logged in"
+		end
+
+		def self.user_must_be_admin(env)
+			user_must_be_logged_in(env)
+			return if env['sveg.user'].is_administrator
+			raise "You must be an administrator to access this resource"
+		end
+		
+		def self.user_must_own(env, resource)
+			user_must_be_logged_in
+			raise "No such resource" unless resource
+			return if (env['sveg.user'].pk == resource_user_id) || (env['sveg.user'].is_administrator)
+			raise "You are not allowed access to this resource"
+		end
+			
+
+	end
 end

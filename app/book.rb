@@ -1,11 +1,11 @@
 require 'json'
 require 'sequel'
+
 require 'app/user'
 require 'app/photo'
 require 'app/book_template'
 require 'app/command_stream'
-
-require 'config/delayed_job'
+require 'app/book2pdf_job'
 
 module PB
 	
@@ -16,10 +16,16 @@ class Book < Sequel::Model(:books)
 	many_to_one :user
 	one_to_many :pages, :class => 'PB::BookPage'
 	many_to_many :photos
-	
+	one_to_many :chrome_pdf_tasks, :class => 'PB::ChromePDFTask'
+	one_to_many :browser_commands, :class => 'PB::BrowserCommand'
+
 	# manual removal of all associations
 	def before_destroy
-		pages.each { |p| p.destroy }
+		# remove all dependent objects
+		pages.each { |p| p.delete } # delete, not destroy, because pages update book when destroyed
+		chrome_pdf_tasks.each { |t| t.destroy }
+		browser_commands.each { |c| c.destroy }
+
 		# save photo list, so we can traverse it
 		p = photos.collect { |x| x }
 		# destroys the association
@@ -43,7 +49,7 @@ class Book < Sequel::Model(:books)
 	end
 	
 	def to_json(*a)
-		last_cmd_id = ServerCommand.last_command_id(self.pk)
+		last_cmd_id = BrowserCommand.last_command_id(self.pk)
 		{
 			:id => self.pk,
 			:title => self.title,

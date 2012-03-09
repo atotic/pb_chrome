@@ -37,21 +37,21 @@
    },
    "uninstall_metrics": {
       "installation_date2": "1327522578",
-      "launch_count": "139"
+      "launch_count": "321"
    },
    "user_experience_metrics": {
-      "session_id": 138,
+      "session_id": 320,
       "stability": {
-         "breakpad_registration_fail": 95,
+         "breakpad_registration_fail": 277,
          "breakpad_registration_ok": 0,
-         "crash_count": 0,
-         "debugger_not_present": 95,
+         "crash_count": 1,
+         "debugger_not_present": 277,
          "debugger_present": 0,
          "exited_cleanly": true,
          "incomplete_session_end_count": 0,
-         "last_timestamp_sec": "1328423688",
-         "launch_count": 95,
-         "launch_time_sec": "1328423683",
+         "last_timestamp_sec": "1331148220",
+         "launch_count": 277,
+         "launch_time_sec": "1331148211",
          "page_load_count": 0,
          "renderer_crash_count": 0,
          "renderer_hang_count": 0,

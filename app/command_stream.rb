@@ -6,16 +6,16 @@ require 'json'
 
 module PB
 
-# ServerCommand is a single document operation
+# BrowserCommand is a single document operation
 # Creating a command causes it to be broadcast
-class ServerCommand < Sequel::Model(:server_commands)
+class BrowserCommand < Sequel::Model(:browser_commands)
 	
 	plugin :timestamps
 
 	many_to_one :book
 	
 	def self.createAddPhotoCmd(book_id, photo, exclude_stream)
-		cmd = ServerCommand.new({
+		cmd = BrowserCommand.new({
 			:type => "AddPhoto",
 			:book_id => book_id,
 			:payload => photo.to_json
@@ -26,7 +26,7 @@ class ServerCommand < Sequel::Model(:server_commands)
 	end
 	
 	def self.createReplacePageCmd(page, exclude_stream)
-		cmd = ServerCommand.new({
+		cmd = BrowserCommand.new({
 			:type => "ReplacePage",
 			:book_id => page.book_id,
 			:payload => page.to_json
@@ -39,7 +39,7 @@ class ServerCommand < Sequel::Model(:server_commands)
 	def self.createAddPageCmd(page, page_position, exclude_stream) 
 		payload = JSON.parse(page.to_json);
 		payload[:previous_page] = page_position - 1
-		cmd = ServerCommand.new({
+		cmd = BrowserCommand.new({
 			:type => "AddPage",
 			:book_id => page.book_id,
 			:payload => payload.to_json
@@ -50,7 +50,7 @@ class ServerCommand < Sequel::Model(:server_commands)
 	end
 
 	def self.createDeletePageCmd(page, exclude_stream)
-		cmd = ServerCommand.new({
+		cmd = BrowserCommand.new({
 			:type => "DeletePage",
 			:book_id => page.book_id,
 			:payload => { :page_id => page.id }.to_json
@@ -61,7 +61,7 @@ class ServerCommand < Sequel::Model(:server_commands)
 	end
 	
 	def self.last_command_id(book_id)
-		last_cmd = ServerCommand.filter(:book_id => book_id).order(:id).last
+		last_cmd = BrowserCommand.filter(:book_id => book_id).order(:id).last
 		return last_cmd.id if last_cmd
 		return 0;
 	end
@@ -72,7 +72,7 @@ class ServerCommand < Sequel::Model(:server_commands)
 		last_command_id = env['HTTP_X_SVEG_LASTCOMMANDID'].to_i
 		if stream_header
 			stream_id, book_id = stream_header.split(";")
-			book_id =  book_id.to_i
+			book_id = book_id.to_i
 		end
 		env['sveg.stream.id'] = stream_id
 		env['sveg.stream.last_command'] = last_command_id
@@ -86,11 +86,11 @@ end
 # based on https://github.com/rkh/presentations/blob/realtime-rack/example.rb
 # and http://code.google.com/p/jquery-stream/wiki/ServerSideProcessing
 class CmdStreamBroadcaster
-	@@listeners = Hash.new # { :book_id => [ [body, stream_id]* ]  }
+	@@listeners = Hash.new # { :book_id => [ [body, stream_id]* ]}
 	
 	def self.bind(body, book_id, last_cmd_id)	# subscriber is DeferrableBody
 		book_id = Integer(book_id)
-		stream_id =  rand(36**6).to_s(36).upcase
+		stream_id = rand(36**6).to_s(36).upcase
 		@@listeners[book_id] = [] unless @@listeners.has_key? book_id
 		@@listeners[book_id].push [ body, stream_id ]
 		LOGGER.info("CmdStreamBroadcaster.bind " + stream_id)
@@ -98,7 +98,7 @@ class CmdStreamBroadcaster
 		# send standard js streaming header
 		body << stream_id << ";" << " " * 1024 << ";" 
 		# send all the outstanding commands 
-		commands = ServerCommand.filter('(id > ?) AND (book_id = ?)', last_cmd_id, book_id)
+		commands = ::PB::BrowserCommand.filter('(id > ?) AND (book_id = ?)', last_cmd_id, book_id)
 		commands.each { |cmd| body << self.encode_msg(cmd) }
 		# tell client they are up to date
 		self.send_stream_up_to_date(book_id, body);
@@ -116,7 +116,7 @@ class CmdStreamBroadcaster
 	end
 
 	# broadcast msg to (everyone except exclude_id) listening on book_id
-	# msg is String||ServerCommand
+	# msg is String||BrowserCommand
 	def self.broadcast( msg, book_id, exclude_id )
 		LOGGER.info("CmdStreamBroadcaster.send")
 		book_id = Integer(book_id)
@@ -130,7 +130,7 @@ class CmdStreamBroadcaster
 
 private
 	def self.encode_msg(msg)
-		msg = self.encode_command(msg) if msg.kind_of? PB::ServerCommand
+		msg = self.encode_command(msg) if msg.kind_of? PB::BrowserCommand
 		(StringIO.new << msg.length << ";" << msg << ";") .string
 	end
 	
@@ -154,19 +154,19 @@ private
 end
 
 class DeferrableBody
-  include EventMachine::Deferrable
+	include EventMachine::Deferrable
 
-  def call(body)
-    body.each { |chunk| @body_callback.call(chunk) }
-  end
+	def call(body)
+		body.each { |chunk| @body_callback.call(chunk) }
+	end
 
-  def each(&blk)
-    @body_callback = blk
-  end
+	def each(&blk)
+		@body_callback = blk
+	end
 
-  def <<(str)
-  	@body_callback.call(str)
-  	self
-  end
+	def <<(str)
+		@body_callback.call(str)
+		self
+	end
 end
 end # module

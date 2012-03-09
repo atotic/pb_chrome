@@ -7,4 +7,5 @@ docs/iPhoto templates
 test/photo-storage
 test/test.sqlite
 public/images/border*.png
-chrome_profile/*
+chromium_profile/Default/Cache/f*
+chromium_profile/Default/*
