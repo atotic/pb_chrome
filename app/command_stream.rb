@@ -14,50 +14,38 @@ class BrowserCommand < Sequel::Model(:browser_commands)
 
 	many_to_one :book
 	
-	def self.createAddPhotoCmd(book_id, photo, exclude_stream)
-		cmd = BrowserCommand.new({
+	def self.createAddPhotoCmd(book_id, photo)
+		BrowserCommand.create({
 			:type => "AddPhoto",
 			:book_id => book_id,
 			:payload => photo.to_json
 		})
-		cmd.save()
-		CmdStreamBroadcaster.broadcast(cmd, book_id, exclude_stream)
-		cmd.id
 	end
 	
-	def self.createReplacePageCmd(page, exclude_stream)
-		cmd = BrowserCommand.new({
+	def self.createReplacePageCmd(page)
+		BrowserCommand.create({
 			:type => "ReplacePage",
 			:book_id => page.book_id,
 			:payload => page.to_json
 		})
-		cmd.save
-		CmdStreamBroadcaster.broadcast(cmd, page.book_id, exclude_stream)
-		cmd.id		
 	end
 	
-	def self.createAddPageCmd(page, page_position, exclude_stream) 
+	def self.createAddPageCmd(page, page_position) 
 		payload = JSON.parse(page.to_json);
 		payload[:previous_page] = page_position - 1
-		cmd = BrowserCommand.new({
+		BrowserCommand.create({
 			:type => "AddPage",
 			:book_id => page.book_id,
 			:payload => payload.to_json
 		});
-		cmd.save
-		CmdStreamBroadcaster.broadcast(cmd, page.book_id, exclude_stream)
-		cmd.id
 	end
 
-	def self.createDeletePageCmd(page, exclude_stream)
-		cmd = BrowserCommand.new({
+	def self.createDeletePageCmd(page)
+		cmd = BrowserCommand.create({
 			:type => "DeletePage",
 			:book_id => page.book_id,
 			:payload => { :page_id => page.id }.to_json
 		});
-		cmd.save
-		CmdStreamBroadcaster.broadcast(cmd, page.book_id, exclude_stream)
-		cmd.id
 	end
 	
 	def self.last_command_id(book_id)
@@ -77,6 +65,14 @@ class BrowserCommand < Sequel::Model(:browser_commands)
 		env['sveg.stream.id'] = stream_id
 		env['sveg.stream.last_command'] = last_command_id
 		env['sveg.stream.book'] = book_id
+	end
+
+	# broadcasts command
+	# returns header hash for browser
+	def broadcast(env = nil)
+		env ||= {}
+		CmdStreamBroadcaster.broadcast(self, book_id, env['sveg.stream.id'])
+		{ 'X-Sveg-LastCommandId' => pk.to_s }
 	end
 end
 

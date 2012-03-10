@@ -129,7 +129,9 @@ module PB
 		def log(env, status, time_taken)
 			now = Time.now
 			return if env['sinatra.static_file']
+			return unless env['PATH_INFO']
 			return if /assets/ =~ env["PATH_INFO"] 
+			debugger unless status.class.eql? Fixnum
 			PB.logger.error "HTTP ERROR" if status >= 400
 			PB.logger.info FORMAT % [
 						env["sveg.user"] || "-",
@@ -191,9 +193,9 @@ module PB
 		end
 		
 		def self.user_must_own(env, resource)
-			user_must_be_logged_in
+			user_must_be_logged_in(env)
 			raise "No such resource" unless resource
-			return if (env['sveg.user'].pk == resource_user_id) || (env['sveg.user'].is_administrator)
+			return if (env['sveg.user'].pk == resource[:user_id]) || (env['sveg.user'].is_administrator)
 			raise "You are not allowed access to this resource"
 		end
 			
