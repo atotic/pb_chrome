@@ -47,6 +47,17 @@ module PB
 		@@logger
 	end
 
+	def self.create_class_logger(klass, options={})
+		options = {
+			:level => Log4r::OFF,
+			:name => klass.to_s.sub(/\:\:/, "_").downcase
+		}.merge(options)
+		logger = Log4r::Logger.new(options[:name])
+		logger.level = options[:level]
+		logger.add Log4r::Outputter.stdout
+		logger
+	end
+
 	# command line utilities
 	class CommandLine
 		
@@ -120,20 +131,23 @@ module PB
 			:skip => true,	# Rack > 1.4
 			:defer => true, # Rack < 1.4
 		}
-		def initialize(app)
-			@log_access = SvegSettings.environment == :development
+		def initialize(app, options = {})
+			options = {
+				:logging => SvegSettings.environment == :development
+			}.merge(options)
+			@do_log = options[:logging]
 			@app = app
 		end
 
 		FORMAT = %{ %s %s %s%s %s" %s %0.4f}
 		def log(env, status, time_taken)
+			return unless @do_log
 			now = Time.now
 			return if env['sinatra.static_file']
 			return unless env['PATH_INFO']
 			return if /assets/ =~ env["PATH_INFO"] 
 			debugger unless status.class.eql? Fixnum
-			PB.logger.error "HTTP ERROR" if status >= 400
-			PB.logger.info FORMAT % [
+			msg = FORMAT % [
 						env["sveg.user"] || "-",
 						env["REQUEST_METHOD"],
 						env["PATH_INFO"],
@@ -141,6 +155,11 @@ module PB
 						env["HTTP_VERSION"],
 						status.to_s[0..3],
 						time_taken ]
+			if status >= 400 
+				PB.logger.error msg
+			else
+				PB.logger.info msg
+			end
 		end
 
 		def call(env)
@@ -149,7 +168,7 @@ module PB
 			before(env, request)
 			status, headers, body = @app.call(env)
 			after(env, request, status, headers, body)
-			log(env, status, Time.now - start_time) if @log_access
+			log(env, status, Time.now - start_time) if @do_log
 			[status, headers, body]
 		end
 
@@ -172,7 +191,7 @@ module PB
 			changed ||= env['rack.session.options'][:expire_after] == 0
 			env['rack.session.options'][:skip] = false if changed
 			env['rack.session.options'][:defer] = false if changed
-			PB.logger.info "Setting cookie" if changed
+#			PB.logger.info "Setting cookie" if changed
 		end
 	end
 
