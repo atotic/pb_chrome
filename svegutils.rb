@@ -130,6 +130,7 @@ module PB
 			:sidbits => 32,
 			:skip => true,	# Rack > 1.4
 			:defer => true, # Rack < 1.4
+			:httponly => SvegSettings.environment == :production
 		}
 		def initialize(app, options = {})
 			options = {

@@ -71,98 +71,26 @@ class BrowserCommand < Sequel::Model(:browser_commands)
 	# returns header hash for browser
 	def broadcast(env = nil)
 		env ||= {}
-		CmdStreamBroadcaster.broadcast(self, book_id, env['sveg.stream.id'])
+		CometBroadcaster.broadcast(self, book_id, env['sveg.stream.id'])
+#		CmdStreamBroadcaster.broadcast(self, book_id, env['sveg.stream.id'])
 		{ 'X-Sveg-LastCommandId' => pk.to_s }
 	end
 end
 
-# Event machine classes
-# 
-# Broadcasts command to all open streams
-# based on https://github.com/rkh/presentations/blob/realtime-rack/example.rb
-# and http://code.google.com/p/jquery-stream/wiki/ServerSideProcessing
-class CmdStreamBroadcaster
-	@@listeners = Hash.new # { :book_id => [ [body, stream_id]* ]}
-	
-	def self.bind(body, book_id, last_cmd_id)	# subscriber is DeferrableBody
-		book_id = Integer(book_id)
-		stream_id = rand(36**6).to_s(36).upcase
-		@@listeners[book_id] = [] unless @@listeners.has_key? book_id
-		@@listeners[book_id].push [ body, stream_id ]
-		LOGGER.info("CmdStreamBroadcaster.bind " + stream_id)
-		
-		# send standard js streaming header
-		body << stream_id << ";" << " " * 1024 << ";" 
-		# send all the outstanding commands 
-		commands = ::PB::BrowserCommand.filter('(id > ?) AND (book_id = ?)', last_cmd_id, book_id)
-		commands.each { |cmd| body << self.encode_msg(cmd) }
-		# tell client they are up to date
-		self.send_stream_up_to_date(book_id, body);
-	end
-	
-	def self.unbind(book_id, body)
-		book_id = Integer(book_id)
-		stream_id = "";
-		book_listens = @@listeners[book_id]
-		book_listens.delete_if do |item| 
-			stream_id = item[1] if item[0] == body 
-			item[0] == body
-		end
-		LOGGER.info("CmdStreamBroadcaster.unbind " + stream_id)
-	end
-
-	# broadcast msg to (everyone except exclude_id) listening on book_id
-	# msg is String||BrowserCommand
-	def self.broadcast( msg, book_id, exclude_id )
-		LOGGER.info("CmdStreamBroadcaster.send")
-		book_id = Integer(book_id)
-		encoded_msg = self.encode_msg(msg)
-		streams = @@listeners[Integer(book_id)] || []
-		streams.each do |item| 
-#			LOGGER.info("Sending to #{item[1]} " + encoded_msg[1..10]) unless item[1].eql?(exclude_id)
-			item[0] << encoded_msg unless item[1].eql?(exclude_id) 
-		end
-	end
-
-private
-	def self.encode_msg(msg)
-		msg = self.encode_command(msg) if msg.kind_of? PB::BrowserCommand
-		(StringIO.new << msg.length << ";" << msg << ";") .string
-	end
-	
-	def self.encode_command(cmd)
-		{
-			:id => cmd.pk,
-			:type => cmd['type'],
-			:book_id => cmd.book_id,
-			:payload => JSON.parse(cmd.payload)
-		}.to_json		
-	end
-	
-	def self.send_stream_up_to_date(book_id, body) 
-			s = {
-				:type => "StreamUpToDate",
-				:book_id => book_id
-			}.to_json
-			body << self.encode_msg(s)
-	end
-	
-end
-
-class DeferrableBody
-	include EventMachine::Deferrable
-
-	def call(body)
-		body.each { |chunk| @body_callback.call(chunk) }
-	end
-
-	def each(&blk)
-		@body_callback = blk
-	end
-
-	def <<(str)
-		@body_callback.call(str)
-		self
+class CometBroadcaster
+	def self.broadcast(cmd, book_id, exclude_stream)
+		query = exclude_stream ? "exclude=#{exclude_stream}" : ""
+		http = EventMachine::Protocols::HttpClient.request(
+     :host => SvegSettings.comet_host,
+     :port => SvegSettings.comet_port,
+     :request => "/broadcast/#{cmd.pk}",
+     :query_string => query
+  	)
+		http.callback {|response|
+			return if response[:status].eql? 200
+			PB.logger.error "Comet broadcast #{response[:status]}, #{response[:content]}"
+   	}
 	end
 end
+
 end # module
