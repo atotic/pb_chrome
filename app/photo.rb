@@ -41,7 +41,7 @@ class Photo < Sequel::Model(:photos)
 	end
 	
 	def before_destroy
-		LOGGER.info("destroying photo #{self.pk}#{self.display_name}")
+		PB.logger.info("destroying photo #{self.pk}#{self.display_name}")
 		PhotoStorage.destroyFile self
 	end
 end
@@ -93,7 +93,7 @@ class PhotoStorage
 		begin
 			File.delete(photo.file_path())
 		rescue => ex
-			LOGGER.error "Could not destroy file #{fileName} " + ex.message
+			PB.logger.error "Could not destroy file #{fileName} " + ex.message
 		end
 		begin 
 			File.delete(photo.file_path(:icon)) 
@@ -106,7 +106,7 @@ class PhotoStorage
 		photo.storage = ""
 		photo.md5 = ""
 		photo.save
-		LOGGER.info("photo file deleted")
+		PB.logger.info("photo file deleted")
 	end
 	
 end

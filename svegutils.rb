@@ -141,21 +141,22 @@ module PB
 		end
 
 		FORMAT = %{ %s %s %s%s %s" %s %0.4f}
-		def log(env, status, time_taken)
+		def log(env, status, time_taken, headers={})
 			return unless @do_log
 			now = Time.now
 			return if env['sinatra.static_file']
 			return unless env['PATH_INFO']
 			return if /assets/ =~ env["PATH_INFO"] 
 			debugger unless status.class.eql? Fixnum
-			msg = FORMAT % [
+			msg = %{ %s %s %s%s %s" %s %0.3f %s} % [
 						env["sveg.user"] || "-",
 						env["REQUEST_METHOD"],
 						env["PATH_INFO"],
 						env["QUERY_STRING"].empty? ? "" : "?"+env["QUERY_STRING"],
 						env["HTTP_VERSION"],
 						status.to_s[0..3],
-						time_taken ]
+						time_taken,
+						headers && headers['Content-Type'] ? headers['Content-Type'] : "default"]
 			if status >= 400 
 				PB.logger.error msg
 			else
@@ -169,7 +170,7 @@ module PB
 			before(env, request)
 			status, headers, body = @app.call(env)
 			after(env, request, status, headers, body)
-			log(env, status, Time.now - start_time) if @do_log
+			log(env, status, Time.now - start_time, headers) if @do_log
 			[status, headers, body]
 		end
 

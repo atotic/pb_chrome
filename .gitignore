@@ -6,6 +6,6 @@ docs/*.tiff
 docs/iPhoto templates
 test/photo-storage
 test/test.sqlite
-public/images/border*.png
+public/img/border*.png
 chromium_profile/Default/Cache/f*
 chromium_profile/Default/*
