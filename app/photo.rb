@@ -18,6 +18,9 @@ class Photo < Sequel::Model(:photos)
 	many_to_one :user
 	many_to_many :books
 	
+	DISPLAY_SIZE = 1024
+	ICON_SIZE = 256
+
 	def to_json(*a)
 		{
 			:id => self.id,
@@ -57,22 +60,32 @@ class PhotoStorage
 		dir
 	end
 	
-	def self.get_cmd_resize(size, src, dest)
-		src = File.expand_path(src)
-		dest = File.expand_path(dest)
-		"sips -Z #{size} #{src} --out #{dest}"
+	def self.auto_orient(photo)
+		path = File.expand_path(photo.file_path)
+		# ImageMagick takes 1.3s to start up, so we query with gm to see if rotation is necessary
+		cmd_query = "#{SvegSettings.graphicsmagick_binary} identify \"#{path}\" -format \"%[EXIF:Orientation]\""
+		result  = `#{cmd_query}`.chomp
+		raise ("Could not query orientation " + $?.to_s) unless $? == 0
+		return if (result.eql?("unknown") || result.eql?("1")) # photo property oriented
+		LOGGER.info("auto-orienting image")
+		cmd_line = "#{SvegSettings.convert_binary} \"#{path}\"  \"#{path}\""
+		success = Kernel.system cmd_line
+		raise("Photo orient failed" + $?.to_s) unless success
 	end
-	
-	def self.createDifferentSizes(photo)
-		src = photo.file_path
-		dest = photo.file_path('icon')
-		cmd_line = self.get_cmd_resize(128, src, dest)
+
+	def self.resize(photo)
+		src = File.expand_path(photo.file_path)
+		dest_icon = File.expand_path(photo.file_path('icon'))
+		dest_display = File.expand_path(photo.file_path('display'))
+		cmd_line = "#{SvegSettings.graphicsmagick_binary} convert"
+		# read in file, remove exif data
+		cmd_line += " -size #{Photo::DISPLAY_SIZE}X#{Photo::DISPLAY_SIZE} #{src} +profile \"*\""
+		# convert display, write it out
+		cmd_line += " -geometry \"#{Photo::DISPLAY_SIZE}X#{Photo::DISPLAY_SIZE}>\" -write #{dest_display}"
+		# convert icon, write out
+		cmd_line += " -geometry \"#{Photo::ICON_SIZE}X#{Photo::ICON_SIZE}>\" #{dest_icon}"
 		success = Kernel.system cmd_line
-		raise ("Photo resize failed " + $?.to_s) unless success
-		dest = photo.file_path('display')
-		cmd_line = self.get_cmd_resize(1024, src, dest)
-		success = Kernel.system cmd_line
-		raise ("Photo resize failed " + $?.to_s) unless success
+		raise("Photo resize failed" + $?.to_s) unless success
 	end
 	
 	def self.storeFile(photo, file_path)
@@ -86,7 +99,9 @@ class PhotoStorage
 		photo.md5 = Digest::MD5.hexdigest(File.read(dest))
 		photo.storage = destName
 		photo.save
-		self.createDifferentSizes(photo)		
+		# file post-processing: orient, and generate sizes
+		self.auto_orient(photo) 
+		self.resize(photo)
 	end
 	
 	def self.destroyFile(photo)

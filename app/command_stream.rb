@@ -65,7 +65,7 @@ class BrowserCommand < Sequel::Model(:browser_commands)
 		env['sveg.stream.id'] = stream_id
 		env['sveg.stream.last_command'] = last_command_id
 		env['sveg.stream.book'] = book_id
-		PB.logger.info("sveg.stream.id #{stream_id.to_s}")
+#		PB.logger.info("sveg.stream.id #{stream_id.to_s}")
 	end
 
 	# broadcasts command
