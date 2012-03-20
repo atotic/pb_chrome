@@ -96,11 +96,9 @@ module PB
 			p = JSON.parse str
 			if p && p.has_key?('__FLASH__') then
 				# flash keys are symbols, not strings, fix json encoding
-				p['__FLASH__'].each_key do |key|
-					if key.class == String then
-						p['__FLASH__'][key.to_sym] = p['__FLASH__'].delete(key)
-					end
-				end
+				new_flash = {}
+				p['__FLASH__'].each_pair {| k,v| new_flash[k.to_sym] = v}
+				p['__FLASH__'].replace new_flash
 			end
 			p
 		end
