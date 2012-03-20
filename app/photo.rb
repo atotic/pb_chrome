@@ -73,6 +73,13 @@ class PhotoStorage
 		raise("Photo orient failed" + $?.to_s) unless success
 	end
 
+	def self.get_cmd_resize(size, src, dest)
+		cmd_line = "#{SvegSettings.graphicsmagick_binary} convert"
+		cmd_line += " -size #{size}X#{size} #{src} +profile \"*\""
+		cmd_line += " -geometry #{size}X#{size} #{dest}"
+		cmd_line
+	end
+
 	def self.resize(photo)
 		src = File.expand_path(photo.file_path)
 		dest_icon = File.expand_path(photo.file_path('icon'))
