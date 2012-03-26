@@ -60,7 +60,7 @@
    "extensions": {
       "autoupdate": {
          "last_check": "12973917464225993",
-         "next_check": "12977260465148081"
+         "next_check": "12977261124072151"
       },
       "blacklistupdate": {
          "lastpingday": "12973852800470357",
@@ -309,100 +309,100 @@
       "enabled_nacl": true,
       "last_internal_directory": "/Users/atotic/chromium/src/out/Release/Chromium.app/Contents/Versions/18.0.976.0/Chromium Framework.framework/Internet Plug-Ins",
       "plugins_list": [ {
-         "enabled": true,
+         "enabled": false,
          "name": "Remoting Viewer",
          "path": "internal-remoting-viewer",
          "version": ""
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "Remoting Viewer"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "Facebook Video Calling Plugin ",
          "path": "/Users/atotic/Library/Internet Plug-Ins/FacebookVideoCalling.bundle",
-         "version": "1.1.0.12"
+         "version": "1.2.0.157"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "Facebook Video Calling Plugin "
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "AmazonMP3DownloaderPlugin",
          "path": "/Library/Internet Plug-Ins/AmazonMP3DownloaderPlugin.plugin",
          "version": "AmazonMP3DownloaderPlugin 1.0.15"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "AmazonMP3DownloaderPlugin"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "Shockwave Flash",
          "path": "/Library/Internet Plug-Ins/Flash Player.plugin",
-         "version": "11.1.102.55"
+         "version": "11.1.102.64"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "Flash"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "Google Talk NPAPI Plugin",
          "path": "/Library/Internet Plug-Ins/googletalkbrowserplugin.plugin",
-         "version": "2.6.1.5251"
+         "version": "2.8.5.6620"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "Google Talk NPAPI Plugin"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "iPhotoPhotocast",
          "path": "/Library/Internet Plug-Ins/iPhotoPhotocast.plugin",
          "version": "7.0"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "iPhotoPhotocast"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "Java Applet Plug-in",
          "path": "/Library/Internet Plug-Ins/JavaAppletPlugin.plugin",
          "version": "14.1.0"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "Java"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "LogMeIn Plugin 1.0.0.497",
          "path": "/Library/Internet Plug-Ins/LogMeIn.plugin",
          "version": "1.0.497"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "LogMeIn Plugin 1.0.0.497"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "Google Talk Plugin Video Accelerator",
          "path": "/Library/Internet Plug-Ins/npgtpo3dautoplugin.plugin",
-         "version": "0.1.44.14"
+         "version": "0.1.44.15"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "Google Talk Plugin Video Accelerator"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "QuickTime Plug-in 7.7.1",
          "path": "/Library/Internet Plug-Ins/QuickTime Plugin.plugin",
          "version": "7.7.1"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "QuickTime"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "Silverlight Plug-In",
          "path": "/Library/Internet Plug-Ins/Silverlight.plugin",
          "version": "4.0.60831.0"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "Silverlight"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "Unity Player",
          "path": "/Library/Internet Plug-Ins/Unity Web Player.plugin",
          "version": "UnityPlayer version 3.3.0f3"
       }, {
-         "enabled": true,
+         "enabled": false,
          "name": "Unity Player"
       } ]
    },
