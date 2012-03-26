@@ -9,11 +9,11 @@
       "clear_lso_data_enabled": true,
       "window_placement": {
          "always_on_top": false,
-         "bottom": 844,
-         "left": 22,
+         "bottom": 862,
+         "left": 46,
          "maximized": false,
-         "right": 822,
-         "top": 44,
+         "right": 846,
+         "top": 62,
          "work_area_bottom": 1534,
          "work_area_left": 0,
          "work_area_right": 2560,
@@ -50,8 +50,8 @@
       "suggest_url": "{google:baseSuggestURL}search?{google:searchFieldtrialParameter}{google:instantFieldTrialGroupParameter}client=chrome&hl={language}&q={searchTerms}"
    },
    "dns_prefetching": {
-      "host_referral_list": [ 2, [ "http://www.google.com/", [ "http://ssl.gstatic.com/", 1.9374973208992063, "http://www.google.com/", 8.378540965652762 ] ] ],
-      "startup_list": [ 1, "http://localhost:27000/", "http://ssl.gstatic.com/", "http://www.google.com/" ]
+      "host_referral_list": [ 2 ],
+      "startup_list": [ 1, "http://localhost:27000/" ]
    },
    "download": {
       "directory_upgrade": true,
@@ -60,7 +60,7 @@
    "extensions": {
       "autoupdate": {
          "last_check": "12973917464225993",
-         "next_check": "12975622586020477"
+         "next_check": "12977260465148081"
       },
       "blacklistupdate": {
          "lastpingday": "12973852800470357",
@@ -109,6 +109,19 @@
          },
          "dgcfmgdfbfbgcpbendbhbkfjppboebed": {
             "blacklist": true
+         },
+         "diihcliplnelpjfcoilfglfapgpmhnfg": {
+            "active_permissions": {
+               "api": [ "notifications", "pageCapture", "tabs", "webNavigation" ],
+               "explicit_host": [ "\u003Call_urls\u003E", "http://*/*" ]
+            },
+            "from_bookmark": false,
+            "from_webstore": false,
+            "install_time": "12977260032341504",
+            "location": 4,
+            "newAllowFileAccess": true,
+            "path": "/Users/atotic/code/pb_chrome/pdf_saver_extension/extension",
+            "state": 1
          },
          "doneghboglgnflpdicnkaojmmljgejkj": {
             "blacklist": true
@@ -227,19 +240,6 @@
          "onpnpccdagncipgnoofbhchlbajcjnkd": {
             "blacklist": true
          },
-         "ooljbphbcpnhhmkpljojmoehcgomcfkd": {
-            "active_permissions": {
-               "api": [ "notifications", "pageCapture", "tabs", "webNavigation" ],
-               "explicit_host": [ "\u003Call_urls\u003E", "http://*/*" ]
-            },
-            "from_bookmark": false,
-            "from_webstore": false,
-            "install_time": "12973251057144702",
-            "location": 4,
-            "newAllowFileAccess": true,
-            "path": "/Users/atotic/code/sinbook/pdf_saver_extension/extension",
-            "state": 1
-         },
          "pbglijbamgmlcpnnpbfjkbdeheejjloj": {
             "blacklist": true
          },
@@ -259,7 +259,7 @@
             "blacklist": true
          }
       },
-      "toolbar": [ "ooljbphbcpnhhmkpljojmoehcgomcfkd" ],
+      "toolbar": [ "diihcliplnelpjfcoilfglfapgpmhnfg" ],
       "ui": {
          "developer_mode": true
       }
@@ -299,7 +299,7 @@
       "promo_is_logged_in_to_plus": false,
       "promo_line": "Have an Android 4.0 phone or tablet? Learn more about \u003Ca href=\"http://chrome.blogspot.com/2012/02/introducing-chrome-for-android.html\"\u003EChrome for Android Beta\u003C/a\u003E.",
       "promo_platform": 7,
-      "promo_resource_cache_update": "1331147274.699545",
+      "promo_resource_cache_update": "1332786373.48649",
       "promo_start": 1329465480.0,
       "promo_views": 0,
       "promo_views_max": 9
