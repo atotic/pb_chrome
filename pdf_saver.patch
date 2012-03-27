@@ -1,0 +1,816 @@
+Index: chrome/browser/extensions/extension_page_capture_pdf.cc
+===================================================================
+--- chrome/browser/extensions/extension_page_capture_pdf.cc	(revision 0)
++++ chrome/browser/extensions/extension_page_capture_pdf.cc	(revision 0)
+@@ -0,0 +1,248 @@
++// Copyright (c) 2011 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "chrome/browser/extensions/extension_page_capture_pdf.h"
++
++#include "base/bind.h"
++#include "base/file_util.h"
++#include "chrome/browser/browser_process.h"
++#include "chrome/browser/extensions/extension_tab_util.h"
++#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
++#include "chrome/browser/printing/print_view_manager.h"
++#include "chrome/common/extensions/extension_messages.h"
++#include "chrome/common/print_messages.h"
++#include "content/browser/child_process_security_policy.h"
++#include "content/browser/renderer_host/render_view_host.h"
++#include "content/browser/tab_contents/tab_contents.h"
++#include "content/browser/download/mhtml_generation_manager.h"
++#include "content/public/browser/notification_details.h"
++#include "content/public/browser/notification_source.h"
++#include "content/public/browser/notification_types.h"
++
++using content::BrowserThread;
++
++// Error messages.
++const char* const kMHTMLGenerationFailedError = "Failed to generate MHTML.";
++const char* const kTemporaryFileError = "Failed to create a temporary file.";
++const char* const kTabClosedError = "Cannot find the tab for thie request.";
++
++static PageCaptureSaveAsPDFFunction::TestDelegate* test_delegate_ = NULL;
++
++PageCaptureSaveAsPDFFunction::PageCaptureSaveAsPDFFunction() : tab_id_(0),
++    paper_size_width_(612),
++    paper_size_height_(792),
++    margin_top_(0),
++    margin_left_(0),
++    margin_bottom_(0),
++    margin_right_(0),
++    dpi_(72) {
++}
++
++PageCaptureSaveAsPDFFunction::~PageCaptureSaveAsPDFFunction() {
++}
++
++void PageCaptureSaveAsPDFFunction::SetTestDelegate(TestDelegate* delegate) {
++  test_delegate_ = delegate;
++}
++
++// Copied from extension_tabs_module.cc
++// Really belongs in extension_utils
++bool ReadOneOrMoreIntegers(
++    Value* value, std::vector<int>* result) {
++  if (value->IsType(Value::TYPE_INTEGER)) {
++    int tab_id = -1;
++    if (!value->GetAsInteger(&tab_id))
++      return false;
++    result->push_back(tab_id);
++    return true;
++
++  } else if (value->IsType(Value::TYPE_LIST)) {
++    ListValue* tabs = static_cast<ListValue*>(value);
++    for (size_t i = 0; i < tabs->GetSize(); ++i) {
++      int tab_id = -1;
++      if (!tabs->GetInteger(i, &tab_id))
++        return false;
++      result->push_back(tab_id);
++    }
++    return true;
++  }
++  return false;
++}
++
++bool PageCaptureSaveAsPDFFunction::RunImpl() {
++  DictionaryValue* args;
++  EXTENSION_FUNCTION_VALIDATE(args_->GetDictionary(0, &args));
++
++  if (!args->HasKey("tabId"))
++    return false;
++
++  EXTENSION_FUNCTION_VALIDATE(args->GetInteger("tabId", &tab_id_));
++
++  if (args->HasKey("dpi"))
++    if (!args->GetInteger("dpi", &dpi_))
++      return false;
++  if (args->HasKey("pageWidth"))
++    if (!args->GetInteger("pageWidth", &paper_size_width_))
++      return false;
++  if (args->HasKey("pageHeight"))
++    if (!args->GetInteger("pageHeight", &paper_size_height_))
++      return false;
++
++  Value* margin_value = NULL;
++  args->Get("margin", &margin_value);
++
++  if (margin_value) {
++    std::vector<int> margins;
++    EXTENSION_FUNCTION_VALIDATE(ReadOneOrMoreIntegers(margin_value, &margins));
++    switch(margins.size()) {
++    case 1:
++      margin_top_ = margin_right_ = margin_bottom_ = margin_left_= margins[0];
++      break;
++    case 2:
++      margin_left_ = margin_right_ = margins[0];
++      margin_top_ = margin_bottom_ = margins[1];
++      break;
++    case 3:
++      margin_top_ = margins[0];
++      margin_left_ = margin_right_ = margins[1];
++      margin_bottom_ = margins[2];
++      break;
++    case 4:
++      margin_top_ = margins[0];
++      margin_left_ = margins[1];
++      margin_bottom_ = margins[2];
++      margin_right_ = margins[3];
++      break;
++    default:
++      return false;
++    }
++  }
++
++
++  AddRef();  // Balanced in ReturnFailure/ReturnSuccess()
++
++  BrowserThread::PostTask(BrowserThread::FILE, FROM_HERE,
++      NewRunnableMethod(this,
++                        &PageCaptureSaveAsPDFFunction::CreateTemporaryFile));
++  return true;
++}
++
++bool PageCaptureSaveAsPDFFunction::OnMessageReceivedFromRenderView(
++    const IPC::Message& message) {
++  if (message.type() != ExtensionHostMsg_ResponseAck::ID)
++    return false;
++
++  int message_request_id;
++  void* iter = NULL;
++  if (!message.ReadInt(&iter, &message_request_id)) {
++    NOTREACHED() << "malformed extension message";
++    return true;
++  }
++
++  if (message_request_id != request_id())
++    return false;
++
++  // The extension process has processed the response and has created a
++  // reference to the blob, it is safe for us to go away.
++  Release();  // Balanced in Run()
++
++  return true;
++}
++
++void PageCaptureSaveAsPDFFunction::CreateTemporaryFile() {
++  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
++  bool success = file_util::CreateTemporaryFile(&mhtml_path_);
++  BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
++      NewRunnableMethod(this,
++                        &PageCaptureSaveAsPDFFunction::TemporaryFileCreated,
++                        success));
++}
++
++void PageCaptureSaveAsPDFFunction::TemporaryFileCreated(bool success) {
++  if (!success) {
++    ReturnFailure(kTemporaryFileError);
++    return;
++  }
++
++  if (test_delegate_)
++    test_delegate_->OnTemporaryFileCreated(mhtml_path_);
++
++  // Sets a DeletableFileReference so the temporary file gets deleted once it is
++  // no longer used.
++  mhtml_file_ = webkit_blob::DeletableFileReference::GetOrCreate(mhtml_path_,
++      BrowserThread::GetMessageLoopProxyForThread(BrowserThread::FILE));
++
++  TabContentsWrapper * tab_contents_wrapper = GetTabContentsWrapper();
++  if (!tab_contents_wrapper) {
++    ReturnFailure(kTabClosedError);
++    return;
++  }
++  PrintMsg_PrintToPDF_Params pdfParams;
++  pdfParams.paper_width = paper_size_width_;
++  pdfParams.paper_height = paper_size_height_;
++  pdfParams.margin_top = margin_top_;
++  pdfParams.margin_left = margin_left_;
++  pdfParams.margin_bottom = margin_bottom_;
++  pdfParams.margin_right = margin_right_;
++  pdfParams.dpi = dpi_;
++  pdfParams.pdf_file = mhtml_path_;
++  printing::PrintViewManager::PrintPDFCallback callback2 =
++      base::Bind(&PageCaptureSaveAsPDFFunction::PrintPDFFinished, this);
++  tab_contents_wrapper->print_view_manager()->PrintPDF(callback2, pdfParams);
++}
++
++void PageCaptureSaveAsPDFFunction::PrintPDFFinished(const PrintHostMsg_PrintToPDFFinished_Params& params) {
++  if (params.error)
++    ReturnFailure(params.message);
++  else if (params.file_size <= 0)
++    ReturnFailure(kMHTMLGenerationFailedError);
++  else
++    ReturnSuccess(params.file_size);
++}
++
++void PageCaptureSaveAsPDFFunction::ReturnFailure(const std::string& error) {
++  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
++
++  error_ = error;
++
++  SendResponse(false);
++
++  Release();  // Balanced in Run()
++}
++
++void PageCaptureSaveAsPDFFunction::ReturnSuccess(int64 file_size) {
++  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
++
++  if (!GetTabContentsWrapper() || !render_view_host()) {
++    ReturnFailure(kTabClosedError);
++    return;
++  }
++
++  int child_id = render_view_host()->process()->GetID();
++  ChildProcessSecurityPolicy::GetInstance()->GrantReadFile(
++      child_id, mhtml_path_);
++
++  DictionaryValue* dict = new DictionaryValue();
++  result_.reset(dict);
++  dict->SetString("mhtmlFilePath", mhtml_path_.value());
++  dict->SetInteger("mhtmlFileLength", file_size);
++
++  SendResponse(true);
++
++  // Note that we'll wait for a response ack message received in
++  // OnMessageReceivedFromRenderView before we call Release() (to prevent the
++  // blob file from being deleted).
++}
++
++TabContentsWrapper* PageCaptureSaveAsPDFFunction::GetTabContentsWrapper() {
++  Browser* browser = NULL;
++  TabContentsWrapper* tab_contents_wrapper = NULL;
++
++  if (!ExtensionTabUtil::GetTabById(tab_id_, profile(), include_incognito(),
++      &browser, NULL, &tab_contents_wrapper, NULL)) {
++    return NULL;
++  }
++  return tab_contents_wrapper;
++}
++
+Index: chrome/browser/extensions/extension_function_dispatcher.cc
+===================================================================
+--- chrome/browser/extensions/extension_function_dispatcher.cc	(revision 115069)
++++ chrome/browser/extensions/extension_function_dispatcher.cc	(working copy)
+@@ -36,6 +36,7 @@
+ #include "chrome/browser/extensions/extension_omnibox_api.h"
+ #include "chrome/browser/extensions/extension_page_actions_module.h"
+ #include "chrome/browser/extensions/extension_page_capture_api.h"
++#include "chrome/browser/extensions/extension_page_capture_pdf.h"
+ #include "chrome/browser/extensions/extension_permissions_api.h"
+ #include "chrome/browser/extensions/extension_preference_api.h"
+ #include "chrome/browser/extensions/extension_processes_api.h"
+@@ -485,6 +486,7 @@
+ 
+   // PageCapture
+   RegisterFunction<PageCaptureSaveAsMHTMLFunction>();
++  RegisterFunction<PageCaptureSaveAsPDFFunction>();
+ 
+   // TopSites
+   RegisterFunction<GetTopSitesFunction>();
+Index: chrome/browser/extensions/extension_page_capture_pdf.h
+===================================================================
+--- chrome/browser/extensions/extension_page_capture_pdf.h	(revision 0)
++++ chrome/browser/extensions/extension_page_capture_pdf.h	(revision 0)
+@@ -0,0 +1,69 @@
++// Copyright (c) 2011 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_PAGE_CAPTURE_PDF_H_
++#define CHROME_BROWSER_EXTENSIONS_EXTENSION_PAGE_CAPTURE_PDF_H_
++
++#include <string>
++
++#include "base/memory/ref_counted.h"
++#include "chrome/browser/extensions/extension_function.h"
++#include "content/browser/tab_contents/tab_contents_observer.h"
++#include "webkit/blob/deletable_file_reference.h"
++
++class FilePath;
++class TabContentsWrapper;
++struct PrintHostMsg_PrintToPDFFinished_Params;
++
++class PageCaptureSaveAsPDFFunction : public AsyncExtensionFunction {
++ public:
++  PageCaptureSaveAsPDFFunction();
++
++  // Test specific delegate used to test that the temporary file gets deleted.
++  class TestDelegate {
++   public:
++    // Called on the UI thread when the temporary file that contains the
++    // generated data has been created.
++    virtual void OnTemporaryFileCreated(const FilePath& temp_file) = 0;
++  };
++  static void SetTestDelegate(TestDelegate* delegate);
++
++ private:
++  virtual ~PageCaptureSaveAsPDFFunction();
++  virtual bool RunImpl() OVERRIDE;
++  virtual bool OnMessageReceivedFromRenderView(
++      const IPC::Message& message) OVERRIDE;
++
++  // Called on the file thread.
++  void CreateTemporaryFile();
++
++  // Called on the UI thread.
++  void TemporaryFileCreated(bool success);
++  void ReturnFailure(const std::string& error);
++  void ReturnSuccess(int64 file_size);
++
++  void PrintPDFFinished(const PrintHostMsg_PrintToPDFFinished_Params& params);
++
++  // Returns the TabContentsWrapper we are associated with, NULL if it's been closed.
++  TabContentsWrapper* GetTabContentsWrapper();
++
++  int tab_id_;
++  int paper_size_width_;
++  int paper_size_height_;
++  int margin_top_;
++  int margin_left_;
++  int margin_bottom_;
++  int margin_right_;
++  int dpi_;
++
++  // The path to the temporary file containing the MHTML data.
++  FilePath mhtml_path_;
++
++  // The file containing the MHTML.
++  scoped_refptr<webkit_blob::DeletableFileReference> mhtml_file_;
++
++  DECLARE_EXTENSION_FUNCTION_NAME("pageCapture.saveAsPDF")
++};
++
++#endif  // CHROME_BROWSER_EXTENSIONS_EXTENSION_PAGE_CAPTURE_PDF_H_
+Index: chrome/browser/printing/print_view_manager.h
+===================================================================
+--- chrome/browser/printing/print_view_manager.h	(revision 115069)
++++ chrome/browser/printing/print_view_manager.h	(working copy)
+@@ -6,8 +6,11 @@
+ #define CHROME_BROWSER_PRINTING_PRINT_VIEW_MANAGER_H_
+ #pragma once
+ 
++#include <map>
++
+ #include "base/memory/ref_counted.h"
+ #include "base/string16.h"
++#include "base/bind.h"
+ #include "content/browser/tab_contents/tab_contents_observer.h"
+ #include "content/public/browser/notification_observer.h"
+ #include "content/public/browser/notification_registrar.h"
+@@ -15,6 +18,8 @@
+ 
+ class TabContentsWrapper;
+ struct PrintHostMsg_DidPrintPage_Params;
++struct PrintMsg_PrintToPDF_Params;
++struct PrintHostMsg_PrintToPDFFinished_Params;
+ 
+ namespace content {
+ class RenderProcessHost;
+@@ -50,6 +55,10 @@
+   // preview tab.
+   bool AdvancedPrintNow();
+ 
++  typedef base::Callback<void(const PrintHostMsg_PrintToPDFFinished_Params& params)> PrintPDFCallback;
++
++  bool PrintPDF(const PrintPDFCallback& callback, PrintMsg_PrintToPDF_Params& params);
++
+   // Initiate print preview of the current document by first notifying the
+   // renderer. Since this happens asynchronous, the print preview tab creation
+   // will not be completed on the return of this function. Returns false if
+@@ -103,6 +112,8 @@
+                               IPC::Message* reply_msg);
+   void OnScriptedPrintPreviewReply(IPC::Message* reply_msg);
+ 
++  void OnPrintToPDFFinished(const PrintHostMsg_PrintToPDFFinished_Params& params);
++
+   // Processes a NOTIFY_PRINT_JOB_EVENT notification.
+   void OnNotifyPrintJobEvent(const JobEventDetails& event_details);
+ 
+@@ -191,6 +202,10 @@
+   // Keeps track of the pending callback during scripted print preview.
+   content::RenderProcessHost* scripted_print_preview_rph_;
+ 
++  typedef std::map<int, PrintPDFCallback> IDToPDFCallbackMap;
++
++  IDToPDFCallbackMap id_to_pdf_;
++
+   DISALLOW_COPY_AND_ASSIGN(PrintViewManager);
+ };
+ 
+Index: chrome/browser/printing/print_view_manager.cc
+===================================================================
+--- chrome/browser/printing/print_view_manager.cc	(revision 115069)
++++ chrome/browser/printing/print_view_manager.cc	(working copy)
+@@ -113,6 +113,29 @@
+   }
+ }
+ 
++bool PrintViewManager::PrintPDF(const PrintPDFCallback& callback, PrintMsg_PrintToPDF_Params& params) {
++  // store the callback
++  static int id_counter = 0;
++  int job_id = id_counter++;
++  id_to_pdf_[job_id] = callback;
++  params.job_id = job_id;
++
++  Send(new PrintMsg_PrintToPDF(routing_id(), params));
++  return true;
++}
++
++void PrintViewManager::OnPrintToPDFFinished(const PrintHostMsg_PrintToPDFFinished_Params& params) {
++  IDToPDFCallbackMap::iterator iter = id_to_pdf_.find(params.job_id);
++  if (iter == id_to_pdf_.end()) {
++    NOTREACHED();
++    return;
++  }
++  PrintPDFCallback callback = iter->second;
++  callback.Run(params);
++  id_to_pdf_.erase(params.job_id);
++ }
++
++
+ bool PrintViewManager::PrintPreviewNow() {
+   if (print_preview_state_ != NOT_PREVIEWING) {
+     NOTREACHED();
+@@ -318,6 +341,7 @@
+     IPC_MESSAGE_HANDLER(PrintHostMsg_DidShowPrintDialog, OnDidShowPrintDialog)
+     IPC_MESSAGE_HANDLER(PrintHostMsg_DidPrintPage, OnDidPrintPage)
+     IPC_MESSAGE_HANDLER(PrintHostMsg_PrintingFailed, OnPrintingFailed)
++    IPC_MESSAGE_HANDLER(PrintHostMsg_PrintToPDFFinished, OnPrintToPDFFinished)
+     IPC_MESSAGE_HANDLER_DELAY_REPLY(PrintHostMsg_ScriptedPrintPreview,
+                                     OnScriptedPrintPreview)
+     IPC_MESSAGE_UNHANDLED(handled = false)
+Index: chrome/renderer/print_web_view_helper.cc
+===================================================================
+--- chrome/renderer/print_web_view_helper.cc	(revision 115069)
++++ chrome/renderer/print_web_view_helper.cc	(working copy)
+@@ -20,8 +20,10 @@
+ #include "content/public/renderer/render_view.h"
+ #include "grit/generated_resources.h"
+ #include "printing/metafile_impl.h"
++#include "printing/metafile_skia_wrapper.h"
+ #include "printing/page_size_margins.h"
+ #include "printing/print_job_constants.h"
++#include "printing/print_settings.h"
+ #include "printing/units.h"
+ #include "third_party/skia/include/core/SkRect.h"
+ #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebCanvas.h"
+@@ -484,6 +486,7 @@
+                         OnPrintNodeUnderContextMenu)
+     IPC_MESSAGE_HANDLER(PrintMsg_PrintPreview, OnPrintPreview)
+     IPC_MESSAGE_HANDLER(PrintMsg_PrintForPrintPreview, OnPrintForPrintPreview)
++    IPC_MESSAGE_HANDLER(PrintMsg_PrintToPDF, OnPrintToPDF)
+     IPC_MESSAGE_HANDLER(PrintMsg_PrintingDone, OnPrintingDone)
+     IPC_MESSAGE_HANDLER(PrintMsg_ResetScriptedPrintCount,
+                         ResetScriptedPrintCount)
+@@ -617,6 +620,124 @@
+   }
+ }
+ 
++// PDF generation failed
++void PrintWebViewHelper::PrintToPDFFinishedError(std::string msg, int job_id) {
++  PrintHostMsg_PrintToPDFFinished_Params reply;
++  reply.error = true;
++  reply.job_id = job_id;
++  reply.message = msg;
++  Send(new PrintHostMsg_PrintToPDFFinished(routing_id(), reply));
++
++}
++
++// PDF generation done successfully
++void PrintWebViewHelper::PrintToPDFFinishedSuccess(std::string msg, int job_id, int64 file_size) {
++  PrintHostMsg_PrintToPDFFinished_Params reply;
++  reply.error = false;
++  reply.job_id = job_id;
++  reply.message = msg;
++  reply.file_size = file_size;
++  Send(new PrintHostMsg_PrintToPDFFinished(routing_id(), reply));
++}
++
++// Lifted from printing_message_filter.cc
++void RenderParamsFromPrintSettings(const printing::PrintSettings& settings,
++                                   PrintMsg_Print_Params* params) {
++  params->page_size = settings.page_setup_device_units().physical_size();
++  params->content_size.SetSize(
++      settings.page_setup_device_units().content_area().width(),
++      settings.page_setup_device_units().content_area().height());
++  params->margin_top = settings.page_setup_device_units().content_area().y();
++  params->margin_left = settings.page_setup_device_units().content_area().x();
++  params->dpi = settings.dpi();
++  // Currently hardcoded at 1.25. See PrintSettings' constructor.
++  params->min_shrink = settings.min_shrink;
++  // Currently hardcoded at 2.0. See PrintSettings' constructor.
++  params->max_shrink = settings.max_shrink;
++  // Currently hardcoded at 72dpi. See PrintSettings' constructor.
++  params->desired_dpi = settings.desired_dpi;
++  // Always use an invalid cookie.
++  params->document_cookie = 0;
++  params->selection_only = settings.selection_only;
++  params->supports_alpha_blend = settings.supports_alpha_blend();
++
++  params->display_header_footer = settings.display_header_footer;
++  if (!settings.display_header_footer)
++    return;
++  params->date = settings.date;
++  params->title = settings.title;
++  params->url = settings.url;
++}
++
++void PrintWebViewHelper::OnPrintToPDF(const PrintMsg_PrintToPDF_Params& pdfParams) {
++  /*
++    PrintMsg_PrintPages_Params contains page_number
++      PrintMsg_Print_Params have page_size, content_size, margin_top etc
++    PrintMsg_PrintPages_Params
++   */
++  // Initialize virtual printer
++  printing::PrintSettings print_settings;
++  print_settings.Clear();
++  float scale = 1;
++  gfx::Size physical_size(pdfParams.paper_width * scale, pdfParams.paper_height * scale);
++  gfx::Rect printable_area(pdfParams.margin_left * scale, pdfParams.margin_top * scale,
++      (pdfParams.paper_width - pdfParams.margin_left - pdfParams.margin_right) * scale,
++      (pdfParams.paper_height - pdfParams.margin_top - pdfParams.margin_bottom) * scale);
++  printing::PageMargins margins;
++  margins.left = pdfParams.margin_left;
++  margins.right = pdfParams.margin_right;
++  margins.top = pdfParams.margin_top;
++  margins.bottom = pdfParams.margin_bottom;
++  print_settings.SetCustomMargins(margins);
++  print_settings.SetPrinterPrintableArea(physical_size, printable_area, pdfParams.dpi);
++  print_settings.desired_dpi = pdfParams.dpi;
++  print_settings.set_dpi(pdfParams.dpi);
++
++  PrintMsg_Print_Params print_params;
++  RenderParamsFromPrintSettings(print_settings, &print_params);
++
++  //
++  WebFrame* frame;
++  if (!GetPrintFrame(&frame)) {
++    PrintToPDFFinishedError("GetPrintFrame failed", pdfParams.job_id);
++    return;
++  }
++  const WebKit::WebNode& node = WebNode();
++
++  // InitPrintSettingsAndPrepareFrame
++  PrepareFrameAndViewForPrint prepare(print_params, frame, node);
++
++  UpdatePrintableSizeInPrintParameters(frame, node, &prepare, &print_params);
++
++  // Print to file
++  const printing::PageSetup page_setup = print_settings.page_setup_device_units();
++  printing::PdfMetafileSkia metafile;
++  if (!metafile.Init())
++    return;
++  int page_count = prepare.GetExpectedPageCount();
++  bool err;
++  for (int i = 0; i < page_count; ++i) {
++    float scale_factor;
++    scale_factor = frame->getPrintPageShrink(i);
++    SkDevice* device = metafile.StartPageForVectorCanvas(page_setup.physical_size(), page_setup.content_area(),scale_factor);
++    SkRefPtr<skia::VectorCanvas> canvas = new skia::VectorCanvas(device);
++    canvas->unref();
++    printing::MetafileSkiaWrapper::SetMetafileOnCanvas(*canvas, &metafile);
++    skia::SetIsDraftMode(*canvas, false);
++    skia::SetIsPreviewMetafile(*canvas, false);
++    float shrink = frame->printPage(i, canvas.get());
++    DCHECK(shrink != 0);
++    err = metafile.FinishPage();
++    DCHECK(err);
++  }
++  err = metafile.FinishDocument();
++  DCHECK(err);
++  err = metafile.SaveTo(pdfParams.pdf_file);
++  DCHECK(err);
++  PrintToPDFFinishedSuccess("", pdfParams.job_id, metafile.GetDataSize());
++}
++
++
+ bool PrintWebViewHelper::CreatePreviewDocument() {
+   PrintMsg_Print_Params print_params = print_pages_params_->params;
+   const std::vector<int>& pages = print_pages_params_->pages;
+Index: chrome/renderer/print_web_view_helper.h
+===================================================================
+--- chrome/renderer/print_web_view_helper.h	(revision 115069)
++++ chrome/renderer/print_web_view_helper.h	(working copy)
+@@ -24,6 +24,7 @@
+ struct PrintMsg_Print_Params;
+ struct PrintMsg_PrintPage_Params;
+ struct PrintMsg_PrintPages_Params;
++struct PrintMsg_PrintToPDF_Params;
+ 
+ namespace base {
+ class DictionaryValue;
+@@ -123,6 +124,9 @@
+   // Start the process of generating a print preview using |settings|.
+   void OnPrintPreview(const base::DictionaryValue& settings);
+ 
++  // Prints to PDF
++  void OnPrintToPDF(const PrintMsg_PrintToPDF_Params& params);
++
+   // Initialize the print preview document.
+   bool CreatePreviewDocument();
+ 
+@@ -294,6 +298,12 @@
+   // Returns true if print preview should continue, false on failure.
+   bool PreviewPageRendered(int page_number, printing::Metafile* metafile);
+ 
++  // PDF generation failed
++  void PrintToPDFFinishedError(std::string msg, int job_id);
++
++  // PDF generation done successfully
++  void PrintToPDFFinishedSuccess(std::string msg, int job_id, int64 file_size);
++
+   WebKit::WebView* print_web_view_;
+ 
+   scoped_ptr<PrintMsg_PrintPages_Params> print_pages_params_;
+Index: chrome/renderer/resources/extensions/schema_generated_bindings.js
+===================================================================
+--- chrome/renderer/resources/extensions/schema_generated_bindings.js	(revision 115069)
++++ chrome/renderer/resources/extensions/schema_generated_bindings.js	(working copy)
+@@ -48,7 +48,7 @@
+     for (var i = 0; i < schemas.length; i++) {
+       if (i in args && args[i] !== null && args[i] !== undefined) {
+         var validator = new chromeHidden.JSONSchemaValidator();
+-        validator.addTypes(chromeHidden.validationTypes);
++				        validator.addTypes(chromeHidden.validationTypes);
+         validator.validate(args[i], schemas[i]);
+         if (validator.errors.length == 0)
+           continue;
+@@ -877,8 +877,7 @@
+       });
+     });
+ 
+-    apiFunctions.setCustomCallback("pageCapture.saveAsMHTML",
+-      function(name, request, response) {
++    var blobCb = function(name, request, response) {
+         var params = chromeHidden.JSON.parse(response);
+         var path = params.mhtmlFilePath;
+         var size = params.mhtmlFileLength;
+@@ -890,7 +889,9 @@
+         // Notify the browser. Now that the blob is referenced from JavaScript,
+         // the browser can drop its reference to it.
+         SendResponseAck(request.id);
+-      });
++      }
++    apiFunctions.setCustomCallback("pageCapture.saveAsMHTML", blobCb );
++    apiFunctions.setCustomCallback("pageCapture.saveAsPDF", blobCb );
+ 
+     apiFunctions.setCustomCallback("fileBrowserPrivate.requestLocalFileSystem",
+       function(name, request, response) {
+Index: chrome/chrome_browser.gypi
+===================================================================
+--- chrome/chrome_browser.gypi	(revision 115069)
++++ chrome/chrome_browser.gypi	(working copy)
+@@ -1115,6 +1115,8 @@
+         'browser/extensions/extension_page_actions_module_constants.h',
+         'browser/extensions/extension_page_capture_api.cc',
+         'browser/extensions/extension_page_capture_api.h',
++        'browser/extensions/extension_page_capture_pdf.cc',
++        'browser/extensions/extension_page_capture_pdf.h',
+         'browser/extensions/extension_permissions_api.cc',
+         'browser/extensions/extension_permissions_api.h',
+         'browser/extensions/extension_pref_store.cc',
+Index: chrome/common/extensions/api/tabs.json
+===================================================================
+--- chrome/common/extensions/api/tabs.json	(revision 115069)
++++ chrome/common/extensions/api/tabs.json	(working copy)
+@@ -539,7 +539,7 @@
+               "file": {"type": "string", "optional": true, "description": "JavaScript file to execute."},
+               "allFrames": {"type": "boolean", "optional": true, "description": "If allFrames is true, this function injects script into all frames of current page. By default, it's false and script is injected only into the top main frame."}
+             }
+-          },
++          }, 
+           {
+             "type": "function",
+             "name": "callback",
+Index: chrome/common/extensions/api/pageCapture.json
+===================================================================
+--- chrome/common/extensions/api/pageCapture.json	(revision 115069)
++++ chrome/common/extensions/api/pageCapture.json	(working copy)
+@@ -32,7 +32,65 @@
+             ]
+           }
+         ]
++      },
++      
++      {
++        "name": "saveAsPDF",
++        "type": "function",
++        "description": "Saves the content of the tab with given id as PDF.",
++        "parameters": [
++          {
++            "name": "details",
++            "type": "object",
++            "properties": {
++              "tabId": {
++                "type": "integer",
++                "minimum": 0,
++                "description": "Id of the tab to save as PDF."
++              },
++              "dpi" : {
++                "type": "integer",
++                "optional": "true",
++                "minimum" : 20,
++                "maximum" : 3000,
++                "description": "Resolution of the PDF file in dpi (dots per inch). Default 72"
++              },
++              "margin": {
++                "type": "array",
++                "optional": "true",
++                "items": {"type": "integer"}, 
++                "minItems": 1, "maxItems": 4,
++                "description": "Margins, array of 1 to 4 values like CSS spec. [TBLR] | [TB,LR] | [T, LR, B] | [T,B,L,R] Default 0"
++              },
++              "pageWidth": {
++                "type": "integer",
++                "optional": "true",
++                "minimum": 100,
++                "description": "Page width in pixels."
++              },
++              "pageHeight": {
++                "type": "integer",
++                "optional": "true",
++                "minimum": 100,
++                "description": "Page height in pixels"
++              }
++            }
++          },
++          {
++            "name": "callback",
++            "type": "function",
++            "description": "Called when the PDF has been generated.",
++            "parameters": [
++              {
++                "name": "mhtmlData",
++                "type": "object",
++                "optional": "true",
++                "description": "The PDF data as a Blob."
++              }
++            ]
++          }
++        ]
+       }
+-    ]
+-  }
++  ]}
+ ]
++
+Index: chrome/common/print_messages.h
+===================================================================
+--- chrome/common/print_messages.h	(revision 115069)
++++ chrome/common/print_messages.h	(working copy)
+@@ -10,6 +10,7 @@
+ 
+ #include "base/values.h"
+ #include "base/shared_memory.h"
++#include "base/file_path.h"
+ #include "ipc/ipc_message_macros.h"
+ #include "printing/page_size_margins.h"
+ #include "printing/print_job_constants.h"
+@@ -244,7 +245,27 @@
+   IPC_STRUCT_MEMBER(printing::MarginType, margin_type)
+ IPC_STRUCT_END()
+ 
++// Parameters for the IPC message PrintToPDF
++IPC_STRUCT_BEGIN(PrintMsg_PrintToPDF_Params)
++  IPC_STRUCT_MEMBER(int, job_id)
++  IPC_STRUCT_MEMBER(int, paper_width)
++  IPC_STRUCT_MEMBER(int, paper_height)
++  IPC_STRUCT_MEMBER(int, margin_top)
++  IPC_STRUCT_MEMBER(int, margin_left)
++  IPC_STRUCT_MEMBER(int, margin_right)
++  IPC_STRUCT_MEMBER(int, margin_bottom)
++  IPC_STRUCT_MEMBER(int, dpi)
++  IPC_STRUCT_MEMBER(FilePath, pdf_file)
++IPC_STRUCT_END()
+ 
++// Parameters for IPC Message PrintHostMsg_PrintToPDFFinished
++IPC_STRUCT_BEGIN(PrintHostMsg_PrintToPDFFinished_Params)
++  IPC_STRUCT_MEMBER(int, job_id)
++  IPC_STRUCT_MEMBER(bool, error)
++  IPC_STRUCT_MEMBER(std::string, message)
++  IPC_STRUCT_MEMBER(int64, file_size)
++IPC_STRUCT_END()
++
+ // Messages sent from the browser to the renderer.
+ 
+ // Tells the render view to initiate print preview for the entire document.
+@@ -283,6 +304,8 @@
+ // Tells a renderer to stop blocking script initiated printing.
+ IPC_MESSAGE_ROUTED0(PrintMsg_ResetScriptedPrintCount)
+ 
++// Tells renderer to save to PDF
++IPC_MESSAGE_ROUTED1(PrintMsg_PrintToPDF, PrintMsg_PrintToPDF_Params)
+ // Messages sent from the renderer to the browser.
+ 
+ #if defined(OS_WIN)
+@@ -392,3 +415,6 @@
+ // window.print() finishes.
+ IPC_SYNC_MESSAGE_ROUTED1_0(PrintHostMsg_ScriptedPrintPreview,
+                            bool /* is_modifiable */)
++
++IPC_MESSAGE_ROUTED1(PrintHostMsg_PrintToPDFFinished,
++    PrintHostMsg_PrintToPDFFinished_Params /* params */)

@@ -1,0 +1,12 @@
+# general linux tools
+sudo apt-get install subversion git g++
+
+# install/configure depot_tools
+svn co http://src.chromium.org/svn/trunk/tools/depot_tools
+cat export PATH="$PATH":`pwd`/depot_tools >> .bashrc
+
+# checkout chromium
+mkdir chromium
+cd chromium
+gclient config http://src.chromium.org/svn/releases/18.0.976.0
+gclient sync
