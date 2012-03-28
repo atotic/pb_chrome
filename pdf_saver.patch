@@ -466,7 +466,7 @@ Index: chrome/renderer/print_web_view_helper.cc
      IPC_MESSAGE_HANDLER(PrintMsg_PrintingDone, OnPrintingDone)
      IPC_MESSAGE_HANDLER(PrintMsg_ResetScriptedPrintCount,
                          ResetScriptedPrintCount)
-@@ -617,6 +620,124 @@
+@@ -617,6 +620,126 @@
    }
  }
  
@@ -574,7 +574,9 @@ Index: chrome/renderer/print_web_view_helper.cc
 +    canvas->unref();
 +    printing::MetafileSkiaWrapper::SetMetafileOnCanvas(*canvas, &metafile);
 +    skia::SetIsDraftMode(*canvas, false);
++#if defined(OS_WIN) || defined(OS_MACOSX)
 +    skia::SetIsPreviewMetafile(*canvas, false);
++#endif
 +    float shrink = frame->printPage(i, canvas.get());
 +    DCHECK(shrink != 0);
 +    err = metafile.FinishPage();
