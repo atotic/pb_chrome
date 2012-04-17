@@ -26,7 +26,7 @@ namespace :chrome do
 		script = IO.read(script_path)
 		script.sub!(/^LOGDIR=(.*)$/, "LOGDIR=#{SvegSettings.chrome_log_dir}")
 		script.sub!(/^CHROME_BIN=(.*)$/, "CHROME_BIN=#{SvegSettings.chrome_binary}")
-		script.sub!(/^CHROME_PROFILE=(.*)$/, "CHROME_PROFILE=#{SvegSettings.chrome_log_dir}")
+		script.sub!(/^CHROME_PROFILE=(.*)$/, "CHROME_PROFILE=#{SvegSettings.chrome_profile_dir}")
 		File.open('bin/linux_64/chrome_daemon.sh', 'w', 0755) { |f| f << script}
 		puts 'chrome_daemon.sh updated'
 	end
