@@ -1,0 +1,853 @@
+Index: base/file_util_posix.cc
+===================================================================
+--- base/file_util_posix.cc	(revision 217147)
++++ base/file_util_posix.cc	(working copy)
+@@ -149,7 +149,7 @@
+ }  // namespace
+ 
+ FilePath MakeAbsoluteFilePath(const FilePath& input) {
+-  ThreadRestrictions::AssertIOAllowed();
++//  ThreadRestrictions::AssertIOAllowed();
+   char full_path[PATH_MAX];
+   if (realpath(input.value().c_str(), full_path) == NULL)
+     return FilePath();
+Index: base/threading/platform_thread_posix.cc
+===================================================================
+--- base/threading/platform_thread_posix.cc	(revision 217147)
++++ base/threading/platform_thread_posix.cc	(working copy)
+@@ -224,7 +224,7 @@
+   // Joining another thread may block the current thread for a long time, since
+   // the thread referred to by |thread_handle| may still be running long-lived /
+   // blocking tasks.
+-  base::ThreadRestrictions::AssertIOAllowed();
++  // base::ThreadRestrictions::AssertIOAllowed();
+   pthread_join(thread_handle.handle_, NULL);
+ }
+ 
+Index: base/threading/thread_restrictions.cc
+===================================================================
+--- base/threading/thread_restrictions.cc	(revision 217147)
++++ base/threading/thread_restrictions.cc	(working copy)
+@@ -34,6 +34,7 @@
+ 
+ // static
+ void ThreadRestrictions::AssertIOAllowed() {
++  return;
+   if (g_io_disallowed.Get().Get()) {
+     LOG(FATAL) <<
+         "Function marked as IO-only was called from a thread that "
+Index: chrome/browser/extensions/api/page_capture/page_capture_api.cc
+===================================================================
+--- chrome/browser/extensions/api/page_capture/page_capture_api.cc	(revision 217147)
++++ chrome/browser/extensions/api/page_capture/page_capture_api.cc	(working copy)
+@@ -11,6 +11,7 @@
+ #include "chrome/browser/browser_process.h"
+ #include "chrome/browser/extensions/extension_tab_util.h"
+ #include "chrome/common/extensions/extension_messages.h"
++#include "chrome/browser/printing/print_view_manager.h"
+ #include "content/public/browser/child_process_security_policy.h"
+ #include "content/public/browser/notification_details.h"
+ #include "content/public/browser/notification_source.h"
+@@ -18,12 +19,16 @@
+ #include "content/public/browser/render_process_host.h"
+ #include "content/public/browser/render_view_host.h"
+ #include "content/public/browser/web_contents.h"
++#include "chrome/common/print_messages.h"
++#include "printing/units.h"
+ 
+ using content::BrowserThread;
+ using content::ChildProcessSecurityPolicy;
+ using content::WebContents;
+ using extensions::PageCaptureSaveAsMHTMLFunction;
++using extensions::PageCaptureSaveAsPDFFunction;
+ using webkit_blob::ShareableFileReference;
++using base::BinaryValue;
+ 
+ namespace SaveAsMHTML = extensions::api::page_capture::SaveAsMHTML;
+ 
+@@ -198,3 +203,211 @@
+   }
+   return web_contents;
+ }
++
++/* PDF saving */
++
++namespace SaveAsPDF = extensions::api::page_capture::SaveAsPDF;
++
++PageCaptureSaveAsPDFFunction::PageCaptureSaveAsPDFFunction() :
++    tab_id_(0),
++    paper_size_width_(612),
++    paper_size_height_(792),
++    margin_top_(0),
++    margin_left_(0),
++    margin_bottom_(0),
++    margin_right_(0),
++    dpi_(72)  {
++}
++
++PageCaptureSaveAsPDFFunction::~PageCaptureSaveAsPDFFunction() {
++  // TODO release shared memory here?
++  // if (pdf_file_.get()) {
++  //   webkit_blob::ShareableFileReference* to_release = pdf_file_.get();
++  //   to_release->AddRef();
++  //   pdf_file_ = NULL;
++  //   BrowserThread::ReleaseSoon(BrowserThread::IO, FROM_HERE, to_release);
++  // }
++}
++
++bool PageCaptureSaveAsPDFFunction::RunImpl() {
++  params_ = SaveAsPDF::Params::Create(*args_);
++  EXTENSION_FUNCTION_VALIDATE(params_.get());
++
++  AddRef();  // Balanced in ReturnFailure/ReturnSuccess()
++
++  tab_id_ = params_->details.tab_id;
++  if (params_->details.page_width)
++    paper_size_width_ = *(params_->details.page_width);
++  if (params_->details.page_height)
++    paper_size_height_ = *(params_->details.page_height);
++  if (params_->details.dpi)
++      dpi_ = *(params_->details.dpi);
++
++  std::vector<int> * margins = params_->details.margin.get();
++  if (margins) {
++    switch(margins->size()) {
++      case 0:
++        break;
++      case 1:
++        margin_top_ = margin_right_ = margin_bottom_ = margin_left_= margins->at(0);
++        break;
++      case 2:
++        margin_left_ = margin_right_ = margins->at(0);
++        margin_top_ = margin_bottom_ = margins->at(1);
++        break;
++      case 3:
++        margin_top_ = margins->at(0);
++        margin_left_ = margin_right_ = margins->at(1);
++        margin_bottom_ = margins->at(2);
++        break;
++      case 4:
++        margin_top_ =  margins->at(0);
++        margin_left_ =  margins->at(1);
++        margin_bottom_ =  margins->at(2);
++        margin_right_ =  margins->at(3);
++        break;
++    }
++  }
++  WebContents* web_contents = GetWebContents();
++  if (!web_contents) {
++    ReturnFailure(kTabClosedError);
++    return false;
++  }
++
++  printing::PrintViewManager* print_view_manager =
++            printing::PrintViewManager::FromWebContents(web_contents);
++
++  PrintMsg_PrintToPDF_Params params;
++  FillPDFParams(params);
++  print_view_manager->PrintToPDF(params, base::Bind(&PageCaptureSaveAsPDFFunction::DidPrintToPDF, this));
++
++  // BrowserThread::PostTask(
++  //     BrowserThread::FILE, FROM_HERE,
++  //     base::Bind(&PageCaptureSaveAsPDFFunction::CreateTemporaryFile, this));
++  return true;
++}
++
++const char kMetafileMapError[] = "Could not map metafile.";
++const char kPDFGenerationError[] = "Internal pdf generation error ";
++
++void PageCaptureSaveAsPDFFunction::DidPrintToPDF(const PrintHostMsg_DidPrintToPDF_Params& didParams) {
++
++  if (didParams.pdf_error_code == 0) {
++    if (didParams.metafile_data_size <= 0) {
++      ReturnFailure(kMHTMLGenerationFailedError);
++      return;
++    }
++
++    if (didParams.metafile_data_size > 400 × 1024 × 1024) {
++      ReturnFailure(kFileTooBigError);
++      return;
++    }
++    scoped_ptr<base::SharedMemory> shared_buf(new base::SharedMemory(didParams.metafile_data_handle, true));
++    if (!shared_buf->Map(didParams.metafile_data_size)) {
++      NOTREACHED() << "Could not map shared memory";
++      ReturnFailure(kMetafileMapError);
++      return ;
++    }
++    BinaryValue* pdf_value = BinaryValue::CreateWithCopiedBuffer((char*)shared_buf->memory(),  didParams.metafile_data_size);
++    SetResult(pdf_value);
++    BrowserThread::PostTask(
++        BrowserThread::UI, FROM_HERE,
++        base::Bind(&PageCaptureSaveAsPDFFunction::SendResponse, this, true));
++  }
++  else {
++    std::stringstream ss;
++    ss << kPDFGenerationError << didParams.pdf_error_code;
++    ReturnFailure(ss.str());
++  }
++}
++
++
++void PageCaptureSaveAsPDFFunction::ReturnFailure(const std::string& error) {
++  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
++
++  error_ = error;
++
++  SendResponse(false);
++
++  Release();  // Balanced in Run()
++}
++
++
++WebContents* PageCaptureSaveAsPDFFunction::GetWebContents() {
++  Browser* browser = NULL;
++  content::WebContents* web_contents = NULL;
++
++  if (!ExtensionTabUtil::GetTabById(params_->details.tab_id, profile(),
++                                    include_incognito(), &browser, NULL,
++                                    &web_contents, NULL)) {
++    return NULL;
++  }
++  return web_contents;
++}
++
++void PageCaptureSaveAsPDFFunction::FillPDFParams(PrintMsg_PrintToPDF_Params &pdfParams) {
++
++  // Specifies dots per inch. // double
++  pdfParams.params.dpi = printing::kPointsPerInch;
++  // Desired apparent dpi on paper., int
++  pdfParams.params.desired_dpi =dpi_;
++  // Minimum shrink factor. See PrintSettings::min_shrink for more information.
++  // Maximum shrink factor. See PrintSettings::max_shrink for more information., double
++  pdfParams.params.min_shrink = pdfParams.params.max_shrink = 1.0;
++  // The x-offset of the printable area, in pixels according to dpi., int
++  pdfParams.params.margin_left = margin_left_;
++  // The y-offset of the printable area, in pixels according to dpi., int
++  pdfParams.params.margin_top = margin_top_;
++  // Physical size of the page, including non-printable margins,
++  // in pixels according to dpi., content_size
++  pdfParams.params.page_size = gfx::Size(paper_size_width_, paper_size_height_);
++  // In pixels according to dpi_x and dpi_y., gfx::Size
++  pdfParams.params.content_size = gfx::Size( paper_size_width_ - margin_left_ - margin_right_,
++    paper_size_height_ - margin_top_ - margin_bottom_);
++  // Physical printable area of the page in pixels according to dpi. gfx::Rect
++  pdfParams.params.printable_area.SetRect(0,0, pdfParams.params.content_size.width(),  pdfParams.params.content_size.height());
++  // True if print backgrounds is requested by the user., bool
++  pdfParams.params.should_print_backgrounds = true;
++    // Does the printer support alpha blending?
++  pdfParams.params.supports_alpha_blend = true;
++
++  /*
++  int document_cookie;
++  bool selection_only;
++  int32 preview_ui_id;
++  int preview_request_id;
++  bool is_first_request;
++  WebKit::WebPrintScalingOption print_scaling_option;
++  bool print_to_pdf;
++  bool display_header_footer;
++  string16 date;
++  string16 title;
++  string16 url;
++
++  // Cookie for the document to ensure correctness.
++  IPC_STRUCT_TRAITS_MEMBER(document_cookie)
++  // Should only print currently selected text.
++  IPC_STRUCT_TRAITS_MEMBER(selection_only)
++  // *** Parameters below are used only for print preview. ***
++  // The print preview ui associated with this request.
++  IPC_STRUCT_TRAITS_MEMBER(preview_ui_id)
++  // The id of the preview request.
++  IPC_STRUCT_TRAITS_MEMBER(preview_request_id)
++  // True if this is the first preview request.
++  IPC_STRUCT_TRAITS_MEMBER(is_first_request)
++  // Specifies the page scaling option for preview printing.
++  IPC_STRUCT_TRAITS_MEMBER(print_scaling_option)
++  // True if print to pdf is requested.
++  IPC_STRUCT_TRAITS_MEMBER(print_to_pdf)
++  // Specifies if the header and footer should be rendered.
++  IPC_STRUCT_TRAITS_MEMBER(display_header_footer)
++  // Date string to be printed as header if requested by the user.
++  IPC_STRUCT_TRAITS_MEMBER(date)
++  // Title string to be printed as header if requested by the user.
++  IPC_STRUCT_TRAITS_MEMBER(title)
++  // URL string to be printed as footer if requested by the user.
++  IPC_STRUCT_TRAITS_MEMBER(url)
++  */
++}
++
++
+Index: chrome/browser/extensions/api/page_capture/page_capture_api.h
+===================================================================
+--- chrome/browser/extensions/api/page_capture/page_capture_api.h	(revision 217147)
++++ chrome/browser/extensions/api/page_capture/page_capture_api.h	(working copy)
+@@ -20,6 +20,9 @@
+ class WebContents;
+ }
+ 
++struct PrintMsg_PrintToPDF_Params;
++struct PrintHostMsg_DidPrintToPDF_Params;
++
+ namespace extensions {
+ 
+ class PageCaptureSaveAsMHTMLFunction : public AsyncExtensionFunction {
+@@ -66,6 +69,38 @@
+   DECLARE_EXTENSION_FUNCTION("pageCapture.saveAsMHTML", PAGECAPTURE_SAVEASMHTML)
+ };
+ 
++class PageCaptureSaveAsPDFFunction : public AsyncExtensionFunction {
++ public:
++  PageCaptureSaveAsPDFFunction();
++ private:
++  virtual ~PageCaptureSaveAsPDFFunction();
++  virtual bool RunImpl() OVERRIDE;
++
++  void DidPrintToPDF(const PrintHostMsg_DidPrintToPDF_Params& didParams);
++
++  // Called on the UI thread
++  void ReturnFailure(const std::string& error);
++
++// Returns the WebContents we are associated with, NULL if it's been closed.
++  content::WebContents* GetWebContents();
++
++  void FillPDFParams(PrintMsg_PrintToPDF_Params &params);
++
++  scoped_ptr<extensions::api::page_capture::SaveAsPDF::Params> params_;
++
++  int tab_id_;
++  int paper_size_width_;
++  int paper_size_height_;
++  int margin_top_;
++  int margin_left_;
++  int margin_bottom_;
++  int margin_right_;
++  int dpi_;
++
++  DECLARE_EXTENSION_FUNCTION("pageCapture.saveAsPDF", PAGECAPTURE_SAVEASPDF)
++
++};
++
+ }  // namespace extensions
+ 
+ #endif  // CHROME_BROWSER_EXTENSIONS_API_PAGE_CAPTURE_PAGE_CAPTURE_API_H_
+Index: chrome/browser/extensions/extension_function_histogram_value.h
+===================================================================
+--- chrome/browser/extensions/extension_function_histogram_value.h	(revision 217147)
++++ chrome/browser/extensions/extension_function_histogram_value.h	(working copy)
+@@ -591,6 +591,7 @@
+   EXPERIMENTAL_INPUT_VIRTUALKEYBOARD_MOVECURSOR,
+   METRICSPRIVATE_GETVARIATIONPARAMS,
+   WEBVIEW_SETPERMISSION,
++  PAGECAPTURE_SAVEASPDF,
+   ENUM_BOUNDARY // Last entry: Add new entries above.
+ };
+ 
+Index: chrome/browser/printing/print_view_manager.cc
+===================================================================
+--- chrome/browser/printing/print_view_manager.cc	(revision 217147)
++++ chrome/browser/printing/print_view_manager.cc	(working copy)
+@@ -80,6 +80,31 @@
+   return PrintNowInternal(new PrintMsg_PrintPages(routing_id()));
+ }
+ 
++bool PrintViewManager::PrintToPDF(PrintMsg_PrintToPDF_Params& params, const PrintPDFCallback& callback) {
++  // store the callback
++  // static int id_counter = 0;
++  // int job_id = id_counter++;
++  // id_to_pdf_[job_id] = callback;
++  // params.job_id = job_id;
++  size_t job_id = (size_t)&callback;
++  params.job_id = job_id;
++  job_id_to_pdf_[job_id] = callback;
++  Send(new PrintMsg_PrintToPDF(routing_id(), params));
++  return true;
++}
++
++void PrintViewManager::OnDidPrintPDF(const PrintHostMsg_DidPrintToPDF_Params& params) {
++  IDToPDFCallbackMap::iterator iter = job_id_to_pdf_.find(params.job_id);
++  if (iter == job_id_to_pdf_.end()) {
++    NOTREACHED() << "OnDidPrintPDF could not find callback";
++    return;
++  }
++  PrintPDFCallback callback = iter->second;
++  callback.Run(params);
++  job_id_to_pdf_.erase(params.job_id);
++}
++
++
+ bool PrintViewManager::PrintPreviewNow(bool selection_only) {
+   // Users can send print commands all they want and it is beyond
+   // PrintViewManager's control. Just ignore the extra commands.
+@@ -185,6 +210,7 @@
+   bool handled = true;
+   IPC_BEGIN_MESSAGE_MAP(PrintViewManager, message)
+     IPC_MESSAGE_HANDLER(PrintHostMsg_DidShowPrintDialog, OnDidShowPrintDialog)
++    IPC_MESSAGE_HANDLER(PrintHostMsg_DidPrintToPDF, OnDidPrintPDF)
+     IPC_MESSAGE_HANDLER_DELAY_REPLY(PrintHostMsg_ScriptedPrintPreview,
+                                     OnScriptedPrintPreview)
+     IPC_MESSAGE_UNHANDLED(handled = false)
+Index: chrome/browser/printing/print_view_manager.h
+===================================================================
+--- chrome/browser/printing/print_view_manager.h	(revision 217147)
++++ chrome/browser/printing/print_view_manager.h	(working copy)
+@@ -11,6 +11,8 @@
+ namespace content {
+ class RenderProcessHost;
+ }
++struct PrintMsg_PrintToPDF_Params;
++struct PrintHostMsg_DidPrintToPDF_Params;
+ 
+ namespace printing {
+ 
+@@ -62,6 +64,15 @@
+   // Terminates or cancels the print job if one was pending.
+   virtual void RenderProcessGone(base::TerminationStatus status) OVERRIDE;
+ 
++  // PrintTOPDF patch
++
++  typedef base::Callback<void(const PrintHostMsg_DidPrintToPDF_Params& params)> PrintPDFCallback;
++
++  bool PrintToPDF(PrintMsg_PrintToPDF_Params& params, const PrintPDFCallback& callback);
++
++  void OnDidPrintPDF(const PrintHostMsg_DidPrintToPDF_Params& params);
++
++
+  private:
+   explicit PrintViewManager(content::WebContents* web_contents);
+   friend class content::WebContentsUserData<PrintViewManager>;
+@@ -88,6 +99,10 @@
+   // Keeps track of the pending callback during scripted print preview.
+   content::RenderProcessHost* scripted_print_preview_rph_;
+ 
++  typedef std::map<size_t, PrintPDFCallback> IDToPDFCallbackMap;
++
++  IDToPDFCallbackMap job_id_to_pdf_;
++
+   DISALLOW_COPY_AND_ASSIGN(PrintViewManager);
+ };
+ 
+Index: chrome/common/extensions/api/page_capture.json
+===================================================================
+--- chrome/common/extensions/api/page_capture.json	(revision 217147)
++++ chrome/common/extensions/api/page_capture.json	(working copy)
+@@ -37,6 +37,65 @@
+             ]
+           }
+         ]
++      },
++     {
++        "name": "saveAsPDF",
++        "type": "function",
++        "description": "Saves the content of the tab with given id as PDF.",
++        "parameters": [
++          {
++            "name": "details",
++            "type": "object",
++            "properties": {
++              "tabId": {
++                "type": "integer",
++                "minimum": 0,
++                "description": "Id of the tab to save as PDF."
++              },
++              "dpi" : {
++                "type": "integer",
++                "optional": "true",
++                "minimum" : 20,
++                "maximum" : 2400,
++                "description": "Resolution of the PDF file in dpi (dots per inch). Default 72"
++              },
++              "margin": {
++                "type": "array",
++                "optional": "true",
++                "items": {"type": "integer"},
++                "minItems": 1, "maxItems": 4,
++                "description": "Margins, array of 1 to 4 values like CSS spec. [TBLR] | [TB,LR] | [T, LR, B] | [T,B,L,R] Default 0"
++              },
++              "pageWidth": {
++                "type": "integer",
++                "optional": "true",
++                "minimum": 32,
++                "maximum": 4000,
++                "description": "Page width in pixels."
++              },
++              "pageHeight": {
++                "type": "integer",
++                "optional": "true",
++                "minimum": 100,
++                "maximum": 4000,
++                "description": "Page height in pixels"
++              }
++            }
++          },
++          {
++            "name": "callback",
++            "type": "function",
++            "description": "Called when the PDF has been generated.",
++            "parameters": [
++              {
++                "name": "pdfData",
++                "type": "binary",
++                "optional": "true",
++                "description": "The PDF data as a Blob."
++              }
++            ]
++          }
++        ]
+       }
+     ]
+   }
+Index: chrome/common/print_messages.h
+===================================================================
+--- chrome/common/print_messages.h	(revision 217147)
++++ chrome/common/print_messages.h	(working copy)
+@@ -160,6 +160,12 @@
+   IPC_STRUCT_MEMBER(int, page_number)
+ IPC_STRUCT_END()
+ 
++// Parameters for the IPC message PrintToPDF
++IPC_STRUCT_BEGIN(PrintMsg_PrintToPDF_Params)
++  IPC_STRUCT_MEMBER(size_t, job_id)
++  IPC_STRUCT_MEMBER(PrintMsg_Print_Params, params)
++IPC_STRUCT_END()
++
+ IPC_STRUCT_TRAITS_BEGIN(PrintHostMsg_RequestPrintPreview_Params)
+   IPC_STRUCT_TRAITS_MEMBER(is_modifiable)
+   IPC_STRUCT_TRAITS_MEMBER(webnode_only)
+@@ -167,6 +173,13 @@
+   IPC_STRUCT_TRAITS_MEMBER(selection_only)
+ IPC_STRUCT_TRAITS_END()
+ 
++IPC_STRUCT_BEGIN(PrintHostMsg_DidPrintToPDF_Params)
++  IPC_STRUCT_MEMBER(size_t, job_id)
++  IPC_STRUCT_MEMBER(int, pdf_error_code)
++  IPC_STRUCT_MEMBER(base::SharedMemoryHandle, metafile_data_handle)
++  IPC_STRUCT_MEMBER(uint32, metafile_data_size)
++IPC_STRUCT_END()
++
+ IPC_STRUCT_TRAITS_BEGIN(printing::PageSizeMargins)
+   IPC_STRUCT_TRAITS_MEMBER(content_width)
+   IPC_STRUCT_TRAITS_MEMBER(content_height)
+@@ -297,6 +310,9 @@
+ // requested pages and switch back the CSS to display media type.
+ IPC_MESSAGE_ROUTED0(PrintMsg_PrintPages)
+ 
++// Tells the render view to print to pdf
++IPC_MESSAGE_ROUTED1(PrintMsg_PrintToPDF, PrintMsg_PrintToPDF_Params)
++
+ // Tells the render view that printing is done so it can clean up.
+ IPC_MESSAGE_ROUTED1(PrintMsg_PrintingDone,
+                     bool /* success */)
+@@ -441,3 +457,10 @@
+ // Notify the browser that the PDF in the initiator renderer has disabled print
+ // scaling option.
+ IPC_MESSAGE_ROUTED0(PrintHostMsg_PrintPreviewScalingDisabled)
++
++// Sends back to the browser the complete rendered document (non-draft mode,
++// used for printing) that was requested by a PrintMsg_PrintToPDF message.
++// The memory handle in this message is already valid in the browser process.
++// Modeled after PrintHostMsg_MetafileReadyForPrinting
++IPC_MESSAGE_ROUTED1(PrintHostMsg_DidPrintToPDF,
++                    PrintHostMsg_DidPrintToPDF_Params /* params */)
+Index: chrome/renderer/printing/print_web_view_helper.cc
+===================================================================
+--- chrome/renderer/printing/print_web_view_helper.cc	(revision 217147)
++++ chrome/renderer/printing/print_web_view_helper.cc	(working copy)
+@@ -26,7 +26,9 @@
+ #include "grit/generated_resources.h"
+ #include "printing/metafile.h"
+ #include "printing/metafile_impl.h"
++#include "printing/metafile_skia_wrapper.h"
+ #include "printing/units.h"
++#include "skia/ext/vector_canvas.h"
+ #include "skia/ext/vector_platform_device_skia.h"
+ #include "third_party/WebKit/public/platform/WebSize.h"
+ #include "third_party/WebKit/public/platform/WebURLRequest.h"
+@@ -793,6 +795,7 @@
+     IPC_MESSAGE_HANDLER(PrintMsg_PrintNodeUnderContextMenu,
+                         OnPrintNodeUnderContextMenu)
+     IPC_MESSAGE_HANDLER(PrintMsg_PrintPreview, OnPrintPreview)
++    IPC_MESSAGE_HANDLER(PrintMsg_PrintToPDF, OnPrintToPDF)
+     IPC_MESSAGE_HANDLER(PrintMsg_PrintForPrintPreview, OnPrintForPrintPreview)
+     IPC_MESSAGE_HANDLER(PrintMsg_PrintingDone, OnPrintingDone)
+     IPC_MESSAGE_HANDLER(PrintMsg_ResetScriptedPrintCount,
+@@ -1991,4 +1994,245 @@
+   error_ = PREVIEW_ERROR_NONE;
+ }
+ 
++void PrintWebViewHelper::PrintToPDFFail(size_t job_id, PrintToPDFErrorBuckets error) {
++  PrintHostMsg_DidPrintToPDF_Params didpdf_params;
++  didpdf_params.job_id = job_id;
++  didpdf_params.pdf_error_code = error;
++  Send(new PrintHostMsg_DidPrintToPDF(routing_id(), didpdf_params));
++}
++
++PrintWebViewHelper::PrintToPDFErrorBuckets PrintWebViewHelper::RenderPageToMetafile(const PrintMsg_Print_Params& params,
++    int page_number,
++    const gfx::Size& canvas_size,
++    WebKit::WebFrame* frame,
++    Metafile* metafile) {
++
++  PageSizeMargins page_layout_in_points;
++  double scale_factor = 1.0f;
++  ComputePageLayoutInPointsForCss(frame, page_number, params, ignore_css_margins_, &scale_factor, &page_layout_in_points);
++  gfx::Size page_size;
++  gfx::Rect content_area;
++  GetPageSizeAndContentAreaFromPageLayout(page_layout_in_points, &page_size,
++                                          &content_area);
++  gfx::Rect canvas_area = params.display_header_footer ? gfx::Rect(page_size) : content_area;
++
++  SkDevice* device = metafile->StartPageForVectorCanvas(page_size, canvas_area, scale_factor);
++  DCHECK(device);
++  if (!device)
++    return PDF_ERROR_MISSING_SKIA_DEVICE;
++
++  // The printPage method take a reference to the canvas we pass down, so it
++  // can't be a stack object.
++  skia::RefPtr<skia::VectorCanvas> canvas = skia::AdoptRef(new skia::VectorCanvas(device));
++  MetafileSkiaWrapper::SetMetafileOnCanvas(*canvas, metafile);
++  skia::SetIsDraftMode(*canvas, false);
++  RenderPageContent(frame, page_number, canvas_area, content_area, scale_factor, canvas.get());
++
++  // Done printing. Close the device context to retrieve the compiled metafile.
++  if (!metafile->FinishPage()) {
++    return PDF_ERROR_SKIA_FINISH_PAGE;
++    NOTREACHED() << "metafile failed";
++  }
++  return PrintToPDFErrorBuckets::PDF_ERROR_NONE;
++}
++
++void PrintWebViewHelper::OnPrintToPDF(const PrintMsg_PrintToPDF_Params& pdfParams) {
++  WebKit::WebView* webView = render_view()->GetWebView();
++  DCHECK(webView);
++  if (!webView)
++    return;
++  WebKit::WebFrame* frame = webView->mainFrame();
++  WebKit::WebNode node = WebKit::WebNode();
++
++  const PrintMsg_Print_Params& print_params = pdfParams.params;
++
++  PrepareFrameAndViewForPrint prepare(print_params, frame, node, ignore_css_margins_);
++
++  prepare.StartPrinting();
++
++  NativeMetafile metafile;
++  bool ok = metafile.Init();
++  DCHECK(ok);
++  if (!ok) {
++    PrintToPDFFail(pdfParams.job_id, PDF_ERROR_METAFILE_INIT_FAILED);
++    return;
++  }
++  const gfx::Size& canvas_size = prepare.GetPrintCanvasSize();
++  int page_count = prepare.GetExpectedPageCount();
++  for (int i = 0; i < page_count; i++) {
++    enum PrintToPDFErrorBuckets pdf_err = RenderPageToMetafile(print_params, i, canvas_size, frame, &metafile);
++    if (pdf_err != PDF_ERROR_NONE) {
++      LOG(ERROR) << "RenderPageToMetafile failed";
++      PrintToPDFFail(pdfParams.job_id, pdf_err);
++      return;
++    }
++  }
++  metafile.FinishDocument();
++  ResetScriptedPrintCount();
++
++  // Send response back
++  PrintHostMsg_DidPrintToPDF_Params didpdf_params;
++  didpdf_params.job_id = pdfParams.job_id;
++  didpdf_params.pdf_error_code = PrintToPDFErrorBuckets::PDF_ERROR_NONE;
++  if (!CopyMetafileDataToSharedMem(&metafile,
++                                   &(didpdf_params.metafile_data_handle))) {
++    LOG(ERROR) << "CopyMetafileDataToSharedMem failed";
++    PrintToPDFFail(pdfParams.job_id, PDF_ERROR_METAFILE_COPY_FAILED);
++    return;
++  }
++  didpdf_params.metafile_data_size = metafile.GetDataSize();
++  Send(new PrintHostMsg_DidPrintToPDF(routing_id(), didpdf_params));
++}
++
++// void PrintWebViewHelper::OnPrintToPDF( const PrintMsg_PrintToPDF_Params& pdfParams ) {
++//   // COPIED FROM ::PRINT
++//   WebKit::WebFrame* frame;
++//   WebKit::WebNode node = WebKit::WebNode();
++//   GetPrintFrame(&frame);
++//   if (prep_frame_view_) {
++//     DidFinishPrinting(FAIL_PRINT);
++//     return;
++//   }
++//   FrameReference frame_ref(frame);
++//   int expected_page_count = 0;
++//   if (!CalculateNumberOfPages(frame, node, &expected_page_count)) {
++//     DidFinishPrinting(FAIL_PRINT_INIT);
++//     return;  // Failed to init print page settings.
++//   }
++//   // Some full screen plugins can say they don't want to print.
++//   if (!expected_page_count) {
++//     DidFinishPrinting(FAIL_PRINT);
++//     return;
++//   }
++
++//   // TODO Set up print settings here
++//   // Ask the browser to show UI to retrieve the final print settings.
++//   // if (!GetPrintSettingsFromUser(frame_ref.GetFrame(), node,
++//   //                               expected_page_count)) {
++//   //   DidFinishPrinting(OK);  // Release resources and fail silently.
++//   //   return;
++//   // }
++
++//   // COPIED FROM ::RenderPagesForPrint
++//   if (!frame || prep_frame_view_) {
++//     LOG(ERROR) << "RenderPagesForPrint failed";
++//     DidFinishPrinting(FAIL_PRINT);
++//     return;
++//   }
++//   const PrintMsg_PrintPages_Params& params = *print_pages_params_;
++//   // TODO use our params
++//   const PrintMsg_Print_Params& print_params = pdfParams.params;
++//   prep_frame_view_.reset( new PrepareFrameAndViewForPrint(print_params, frame, node, ignore_css_margins_));
++//   DCHECK(!print_pages_params_->params.selection_only || print_pages_params_->pages.empty());
++//   // prep_frame_view_->CopySelectionIfNeeded(
++//   //     render_view()->GetWebkitPreferences(),
++//   //     base::Bind(&PrintWebViewHelper::OnFramePreparedForPrintPages,
++//   //                base::Unretained(this)));
++//   // COPIED FROM ::OnFramePreparedForPrintPages
++//     // COPIED FROM ::PrintPages
++//     if (!prep_frame_view_)  // Printing is already canceled or failed.
++//   return;
++//   prep_frame_view_->StartPrinting();
++
++//   int page_count = prep_frame_view_->GetExpectedPageCount();
++//   if (!page_count) {
++//     LOG(ERROR) << "Can't print 0 pages.";
++//     return DidFinishPrinting(FAIL_PRINT);
++//   }
++
++
++//   if (!PrintPagesNative(prep_frame_view_->frame(), prep_frame_view_->node(),
++//                         page_count, prep_frame_view_->GetPrintCanvasSize())) {
++//     LOG(ERROR) << "Printing failed.";
++//     return DidFinishPrinting(FAIL_PRINT);
++//   }
++//   FinishFramePrinting();
++
++//   if (!RenderPagesForPrint(frame_ref.GetFrame(), node)) {
++//     LOG(ERROR) << "RenderPagesForPrint failed";
++//     DidFinishPrinting(FAIL_PRINT);
++//   }
++//   ResetScriptedPrintCount();
++// }
++// void PrintWebViewHelper::OnPrintToPDF(const PrintMsg_PrintToPDF_Params& pdfParams) {
++//   /*
++//     PrintMsg_PrintPages_Params contains page_number
++//       PrintMsg_Print_Params have page_size, content_size, margin_top etc
++//     PrintMsg_PrintPages_Params
++//    */
++//   // Initialize virtual printer
++
++//   //
++//   WebKit::WebFrame* frame;
++//   if (!GetPrintFrame(&frame)) {
++//     // PrintToPDFFinishedError("GetPrintFrame failed", pdfParams.params.job_id);
++//     return;
++//   }
++//   const WebKit::WebNode& node = WebKit::WebNode();
++
++//   PrepareFrameAndViewForPrint prepare(pdfParams.params, frame, node, ignore_css_margins_);
++
++//   // UpdatePrintableSizeInPrintParameters(frame, node, &prepare, &print_params);
++
++//   // Print to file
++//   // const printing::PageSetup page_setup = print_settings.page_setup_device_units();
++//   printing::PdfMetafileSkia metafile;
++//   if (!metafile.Init())
++//     return;
++//   int page_count = prepare.GetExpectedPageCount();
++//   bool err;
++//   // inspired by print_web_view_helper_linux.cc PrinteWebViewHelper::PrintPageInternal
++//   for (int i = 0; i < page_count; ++i) {
++//     double scale_factor = 1.0f;
++//     PageSizeMargins page_layout_in_points;
++//     ComputePageLayoutInPointsForCss( frame, i, pdfParams.params,
++//                                   ignore_css_margins_, &scale_factor,
++//                                   &page_layout_in_points);
++//     gfx::Size page_size;
++//     gfx::Rect content_area;
++//     GetPageSizeAndContentAreaFromPageLayout(page_layout_in_points, &page_size,
++//                                             &content_area);
++
++//     gfx::Rect canvas_area =
++//         pdfParams.params.display_header_footer ? gfx::Rect(page_size) : content_area;
++
++//     SkDevice* device = metafile.StartPageForVectorCanvas(page_size, canvas_area,
++//                                                           scale_factor);
++//     if (!device)
++//       return;
++
++//   // The printPage method take a reference to the canvas we pass down, so it
++//   // can't be a stack object.
++//     skia::RefPtr<skia::VectorCanvas> canvas = skia::AdoptRef(new skia::VectorCanvas(device));
++//     MetafileSkiaWrapper::SetMetafileOnCanvas(*canvas, &metafile);
++//     skia::SetIsDraftMode(*canvas, false);
++
++//     if (pdfParams.params.display_header_footer) {
++//       // |page_number| is 0-based, so 1 is added.
++//       // TODO(vitalybuka) : why does it work only with 1.25?
++//       PrintHeaderAndFooter(canvas.get(), i + 1,
++//                            page_count,
++//                            scale_factor / 1.25,
++//                            page_layout_in_points, *header_footer_info_,
++//                            pdfParams.params);
++//     }
++//     RenderPageContent(frame, i, canvas_area, content_area,
++//                       scale_factor, canvas.get());
++//     // Done printing. Close the device context to retrieve the compiled metafile.
++//     if (!metafile.FinishPage())
++//       NOTREACHED() << "metafile failed";
++//   }
++//   err = metafile.FinishDocument();
++//   DCHECK(err);
++//   err = metafile.SaveTo(pdfParams.pdf_path);
++//   DCHECK(err);
++
++//   // PrintHostMsg_PrintToPDFFinished_Params reply;
++//   // reply.error = false;
++//   // reply.job_id = pdfParams.job_id;
++//   // reply.message = "";
++//   // reply.file_size = metafile.GetDataSize();
++//   // Send(new PrintHostMsg_PrintToPDFFinished(routing_id(), reply));
++// }
++
+ }  // namespace printing
+Index: chrome/renderer/printing/print_web_view_helper.h
+===================================================================
+--- chrome/renderer/printing/print_web_view_helper.h	(revision 217147)
++++ chrome/renderer/printing/print_web_view_helper.h	(working copy)
+@@ -22,6 +22,7 @@
+ struct PrintMsg_Print_Params;
+ struct PrintMsg_PrintPage_Params;
+ struct PrintMsg_PrintPages_Params;
++struct PrintMsg_PrintToPDF_Params;
+ 
+ namespace base {
+ class DictionaryValue;
+@@ -339,6 +340,22 @@
+   // Returns true if print preview should continue, false on failure.
+   bool PreviewPageRendered(int page_number, Metafile* metafile);
+ 
++  // PrintToPDF patch
++
++  enum PrintToPDFErrorBuckets {
++    PDF_ERROR_NONE,
++    PDF_ERROR_METAFILE_INIT_FAILED,
++    PDF_ERROR_METAFILE_COPY_FAILED,
++    PDF_ERROR_MISSING_SKIA_DEVICE,
++    PDF_ERROR_SKIA_FINISH_PAGE
++  };
++  // PrintToPDF message handler, renders PDF
++  void OnPrintToPDF(const PrintMsg_PrintToPDF_Params& params);
++  // Renders single page to pdf metafile
++  PrintToPDFErrorBuckets RenderPageToMetafile(const PrintMsg_Print_Params& params, int page_number, const gfx::Size& canvas_size, WebKit::WebFrame* frame, Metafile* metafile);
++  // PrintToPDF failure
++  void PrintToPDFFail(size_t job_id, PrintToPDFErrorBuckets error);
++
+   // WebView used only to print the selection.
+   scoped_ptr<PrepareFrameAndViewForPrint> prep_frame_view_;
+   bool reset_prep_frame_view_;

@@ -1,12 +1,16 @@
 {
+  "manifest_version": 2,
   "name": "pdf_saver_extension",
+  "description": "PDF conversion with pageCapture.saveAsPDF",
   "version": "1.0",
-  "description": "PDF conversion with Chrome",
-  "background_page": "background.html",
   "options_page": "options.html",
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": true
+  },
   "browser_action": {
     "default_icon": "icon.png",
-	"default_title": "save as PDF on server"
+  	"default_title": "save as PDF on server"
   },
   "permissions": [
 	 "tabs",

@@ -1,7 +1,3 @@
-<html>
-<head>
-<script>
-
 function getServerUrl() {
 	var s = localStorage['pdfServer'] || "http://localhost:27000/";
 	return s;
@@ -18,14 +14,45 @@ function notifyProblem(msg) {
 window.tabErrors = {}; // tabId => error mappings
 window.tabCompletion = {};
 
+function convertTabToPdf(tabId, options, successCb, failCb) {
+	var saveAsPDFOptions = {
+		tabId: tabId,
+		dpi: 300,
+		margin: [0],
+		pageWidth: 612,
+		pageHeight: 792
+	}
+	for (var p in saveAsPDFOptions) {
+		if (p in options)
+			saveAsPDFOptions[propName] = options[p];
+	}
+	try {
+		chrome.pageCapture.saveAsPDF( saveAsPDFOptions, function(pdfBlob) {
+			if ('lastError' in chrome.extension)
+				failCb(tabId, chrome.extension.lastError.message);
+			else
+				successCb(tabId, pdfBlob);
+		});
+	}
+	catch(ex) {
+		console.error("exception on saveAsPDF");
+		console.error(ex);
+		failCb(tabId, "Unexpected error in saveAsPDF" + ex.message);
+	}
+}
+
+function tabIndex(tabId) {
+	return tabId + "";
+}
+
 function startPdfConversion(json) {
 	// open new tab
 	// load the url
 	// when document ready, do saveAsPdf
 	// in callback, post data back to server
-	function pdfDone(tab, pdfData) {
+	function pdfDone(tabId, blob) {
 		console.log("pdfDone");
-		chrome.tabs.remove(tab.id);
+		chrome.tabs.remove(tabId);
 		var xhr = new XMLHttpRequest();
 		var url = getServerUrl() + "pdf_done?id=" + json.id;
 		xhr.open("POST", url, true);
@@ -34,17 +61,18 @@ function startPdfConversion(json) {
 				notifyProblem("PDF Upload failed. " + xhr.status + "\n" + xhr.responseText);
 			}
 			else
-				console.info("PDF uploaded") 
+				console.info("PDF uploaded")
 		};
 		xhr.onerror = function(ev) {
 			notifyProblem("PDF Upload failed. PDF Upload server might be down.");
 		};
-		xhr.send(pdfData);		
+		xhr.send(blob);
 	}
-	
-	function pdfFail(tab, message) {
+
+	function pdfFail(tabId, message) {
 		console.log("pdfFail " + message);
-		chrome.tabs.remove(tab.id);
+		if (tabId)
+			chrome.tabs.remove(tabId);
 		var xhr = new XMLHttpRequest();
 		var url = getServerUrl() + "pdf_fail?id=" + json.id
 		xhr.open("POST", url, true);
@@ -53,57 +81,35 @@ function startPdfConversion(json) {
 		};
 		xhr.send(message);
 	}
-	
-	function tabCreated(tab) {
-		var tabId = tab.id + "";
-		if (tabId in window.tabErrors) {
-			var err = window.tabErrors[tabId];
-			delete window.tabErrors[tabId];
-			pdfFail(tab, err);
+
+	function generatePdf( tabId ) {
+		var tabIndex = tabIndex(tabId);
+		if (tabIndex in window.tabErrors) {
+			var err = window.tabErrors[tabIndex];
+			delete window.tabErrors[tabIndex];
+			pdfFail(tabId, err);
 			return;
 		}
-		else if (!(tabId in window.tabCompletion)) {
+		else if (!(tabIndex in window.tabCompletion)) {
 			// loading still incomplete
 			console.log("waiting for tab completion");
-			setTimeout(function() { tabCreated(tab) }, 100);
+			setTimeout(function() { generatePdf(tab) }, 100);
 			return;
 		}
-		else { // tab loaded, generate pdf
-			delete window.tabCompletion[tabId];
-			options = {
-				tabId: tab.id,
-				dpi: 300,
-				margin: [0],
-				pageWidth: 612,
-				pageHeight: 792
-			}
-			if ('dpi' in json) options.dpi = json.dpi;
-			if ('margin' in json) options.margin = json.margin;
-			if ('pageWidth' in json) options.pageWidth = json.pageWidth;
-			if ('pageHeight' in json) options.pageHeight = json.pageHeight;
-			debugger;
-			try {
-				chrome.pageCapture.saveAsPDF( options, function(pdfData) {
-					if ('lastError' in chrome.extension)
-						pdfFail(tab, chrome.extension.lastError.message);
-					else
-						pdfDone(tab, pdfData);
-				});
-			}
-			catch(ex) {
-				console.error("exception on saveAsPDF");
-				console.error(ex);
-			}
-		}
+		convertTabToPdf(tabId, json, pdfDone, pdfFail);
 	}
+
 	function createTab(windowId) {
-		chrome.tabs.create({'windowId': windowId, 'url': json.html_file_url}, tabCreated);
+		chrome.tabs.create({'windowId': windowId, 'url': json.html_file_url},
+			function(tab) { generatePdf(tabId) });
 	}
 	// Must create new window if no windows are available
 	try {
-		chrome.windows.getCurrent(function(w) {
+		chrome.windows.getCurrent( function(w) {
 			if (!w)
-				chrome.windows.create({ width: 800, height: 800}, function(w) { createTab(w.id)} );
+				chrome.windows.create({ width: 800, height: 800}, function(w) {
+					createTab(w.id)
+				} );
 			else
 				createTab(w.id);
 		});
@@ -111,7 +117,7 @@ function startPdfConversion(json) {
 	catch (e)
 	{
 		console.log("getCurrent threw exception");
-		chrome.windows.create({}, createTab());
+		pdfFail("unexpected error", e.message);
 	}
 }
 
@@ -137,24 +143,42 @@ function pollForWork() {
 	}
 	xhr.send();
 }
-
-setInterval(pollForWork, 1000);
+//setInterval(pollForWork, 1000);
 
 chrome.browserAction.onClicked.addListener(function(tab) {
-	startPdfConversion(tab);
+	convertTabToPdf( tab.id, {},
+		function(tabId, blob) {
+			console.log("successful conversion", blob);
+			var xhr = new XMLHttpRequest();
+			var url = getServerUrl() + "pdf_test?title=" + tab.url;
+			xhr.open("POST", url, true);
+			xhr.onload = function (ev) {
+				if (xhr.status != 200) {
+					notifyProblem("PDF Upload failed. " + xhr.status + "\n" + xhr.responseText);
+				}
+				else
+					console.info("PDF uploaded")
+			};
+			xhr.onerror = function(ev) {
+				notifyProblem("PDF Upload failed. PDF Upload server might be down.");
+			};
+			xhr.send(blob);
+
+		},
+		function(tabId, message) {
+			console.log("failed conversion", message);
+		});
 });
 
 // Get called by detect_failure.js
 chrome.extension.onRequest.addListener( function(request, sender, sendResponse) {
-	window.tabErrors[sender.tab.id + ""] =  request;
+	window.tabErrors[ tabIndex(sender.tab.id) ] =  request;
 });
 
 chrome.webNavigation.onErrorOccurred.addListener( function(details) {
 	console.log("Received error for " + details.tabId + " " + details.error);
-	window.tabErrors[details.tabId + ""] = details.error;
+	window.tabErrors[ tabIndex(details.tabId) ] = details.error;
 });
 chrome.webNavigation.onCompleted.addListener( function(details) {
-	window.tabCompletion[details.tabId + ""] = true;
+	window.tabCompletion[ tabIndex(details.tabId) ] = true;
 });
-</script>
-</head>
