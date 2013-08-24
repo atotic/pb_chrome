@@ -1,8 +1,7 @@
 {
-  "manifest_version": 2,
   "name": "pdf_saver_extension",
+  "version": "0.0",
   "description": "PDF conversion with pageCapture.saveAsPDF",
-  "version": "1.0",
   "options_page": "options.html",
   "background": {
     "scripts": ["background.js"],
@@ -12,6 +11,10 @@
     "default_icon": "icon.png",
   	"default_title": "save as PDF on server"
   },
+  "content_scripts": [ /*{
+    "matches": ["http://*.pb4us.com/*"],
+    "js": ["content.js"]
+  }*/],
   "permissions": [
 	 "tabs",
 	 "pageCapture",
@@ -19,5 +22,6 @@
 	 "http://*/",
 	 "webNavigation",
 	 "<all_urls>"
-  ]
+  ],
+  "manifest_version": 2
 }
