@@ -142,6 +142,22 @@
 		<dict>
 			<key>CFBundleTypeExtensions</key>
 			<array>
+				<string>svg</string>
+			</array>
+			<key>CFBundleTypeIconFile</key>
+			<string>document.icns</string>
+			<key>CFBundleTypeMIMETypes</key>
+			<array>
+				<string>image/svg+xml</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>SVG document</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+		</dict>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
 				<string>txt</string>
 				<string>text</string>
 			</array>
@@ -177,6 +193,22 @@
 			<string>Viewer</string>
 		</dict>
 		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>webp</string>
+			</array>
+			<key>CFBundleTypeIconFile</key>
+			<string>document.icns</string>
+			<key>CFBundleTypeMIMETypes</key>
+			<array>
+				<string>image/webp</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>WebP image</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+		</dict>
+		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSItemContentTypes</key>
@@ -198,7 +230,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>18.0.976.0</string>
+	<string>30.0.1599.0</string>
 	<key>CFBundleSignature</key>
 	<string>Cr24</string>
 	<key>CFBundleURLTypes</key>
@@ -230,23 +262,23 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>976.0</string>
+	<string>1599.0</string>
 	<key>LSFileQuarantineEnabled</key>
 	<true/>
 	<key>LSHasLocalizedDisplayName</key>
 	<string>1</string>
 	<key>LSMinimumSystemVersion</key>
-	<string>10.5.0</string>
+	<string>10.6.0</string>
 	<key>NSAppleScriptEnabled</key>
 	<true/>
+	<key>NSPrincipalClass</key>
+	<string>BrowserCrApplication</string>
 	<key>NSSupportsAutomaticGraphicsSwitching</key>
 	<true/>
 	<key>OSAScriptingDefinition</key>
 	<string>scripting.sdef</string>
-	<key>SVNPath</key>
-	<string>/trunk/src</string>
-	<key>SVNRevision</key>
-	<string>115069</string>
+	<key>SCMRevision</key>
+	<string>217147</string>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>

@@ -1,9 +1,12 @@
 "use strict"
-var TEST_MODE = true;
+var TEST_MODE = false;
 
 function getServerUrl() {
-	var s = localStorage['pdfServer'] || "http://localhost:27000/";
-	return s;
+	return localStorage['pdfServer'] || "http://localhost:27000/";
+}
+
+function getAuthenticationUrl() {
+	return "http://dev.pb4us.com/login_as_printerABCDEFG";
 }
 
 function notifyProblem(msg) {
@@ -35,13 +38,16 @@ BookConversion.prototype = {
 	windowId: null,
 	tabId: null,
 	startTime: 0,
+	closeTab: false,
 	start: function() {
 		this.startTime = Date.now();
 		this.getWindow();
+		this.closeTab = true;
 	},
 	startInTab: function(tabId) {
 		this.startTime = Date.now();
 		var THIS = this;
+		this.closeTab = false;
 		chrome.tabs.update(tabId, { url: 'http://dev.pb4us.com/pdf_converter' }, function() {
 			THIS.didCreateTab(tabId);
 		});
@@ -177,7 +183,7 @@ BookConversion.prototype = {
 		console.error(error.message);
 		this.pageList = [];
 //		notifyProblem(error.message);
-		this.didPDFConversion(error);
+		this.didPDFConversion(error.message);
 	},
 	didPDFConversion: function(error) {
 		console.log("All pages have been converted");
@@ -197,6 +203,9 @@ BookConversion.prototype = {
 
 		xhr.open("POST", url, true);
 		xhr.send(formData);
+		if (this.closeTab && this.tabId)
+			chrome.tabs.remove(this.tabId);
+		currentConversion = null;
 	}
 }
 
@@ -250,15 +259,17 @@ function convertTabToPdf(tabId, options, successCb, failCb) {
 }
 
 function pollForWork() {
-/*	if (debugMe != 0)
+	if (currentConversion)	// just one conversion at a time
 		return;
-	debugMe = 1;*/
 	var xhr = new XMLHttpRequest();
-	var url = getServerUrl() + "poll_pdf_work";
+	var url = getServerUrl() + "get_work";
 	xhr.open("GET", url, true);
 	xhr.onload = function(ev) {
-		if (xhr.status == 200)
-			startBookConversion(JSON.parse(xhr.responseText));
+		if (xhr.status == 200) {
+			var task = JSON.parse(xhr.responseText);
+			var c = new BookConversion(task.book_json, task.task_id);
+			c.start();
+		}
 		else if (xhr.status == 204)
 			;
 		else {
@@ -270,6 +281,36 @@ function pollForWork() {
 	}
 	xhr.send();
 }
+
+// Logs in as a printer user
+var Authorizer = {
+	start: function() {
+		chrome.windows.getCurrent( function(w) {
+		if (!w)
+			chrome.windows.create({ width: 800, height: 800}, function(w) { Authorizer.didGetWindow(w.id) });
+		else
+			Authorizer.didGetWindow(w.id);
+		});
+	},
+	didGetWindow: function(id) {
+		chrome.tabs.create({'windowId': this.id, 'url': getAuthenticationUrl() },
+				function(tab) { Authorizer.didCreateTab(tab.id) });
+	},
+	didCreateTab: function(tabId) {
+		window.setTimeout(function() {chrome.tabs.remove(tabId)}, 5000);
+	}
+}
+function authorize() {
+	var xhr = new XMLHttpRequest();
+	xhr.open("GET", getAuthenticationUrl(), true);
+	xhr.onerror = function(ev) {
+		notifyProblem("Could not authenticate as printer");
+	}
+	xhr.send();
+}
+// Refresh authorization every hour
+Authorizer.start();
+setInterval(function() {Authorizer.start()}, 3600000);
 
 if (!TEST_MODE) setInterval(pollForWork, 1000);
 

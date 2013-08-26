@@ -1,6 +1,6 @@
 {
   "name": "pdf_saver_extension",
-  "version": "0.0",
+  "version": "30.0.1599.0",
   "description": "PDF conversion with pageCapture.saveAsPDF",
   "options_page": "options.html",
   "background": {
