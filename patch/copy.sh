@@ -1,4 +1,4 @@
-DEST=/Users/atotic/chromium2/pookio_patch
+DEST=/Users/atotic/pb4us/pb_chrome/patch
 SRC=/Users/atotic/chromium2/src
 
 echo "copying .h|.cc"

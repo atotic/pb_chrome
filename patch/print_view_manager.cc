@@ -18,6 +18,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/web_contents.h"
 #include "printing/print_destination_interface.h"
+#include "printing/print_settings.h"
 
 using content::BrowserThread;
 
@@ -80,16 +81,17 @@ bool PrintViewManager::PrintToDestination() {
   return PrintNowInternal(new PrintMsg_PrintPages(routing_id()));
 }
 
-bool PrintViewManager::PrintToPDF(PrintMsg_PrintToPDF_Params& params, const PrintPDFCallback& callback) {
+bool PrintViewManager::PrintToPDF(PrintMsg_PrintToPDF_Params& pdfParams, const PrintPDFCallback& callback) {
   // store the callback
   // static int id_counter = 0;
   // int job_id = id_counter++;
   // id_to_pdf_[job_id] = callback;
   // params.job_id = job_id;
   size_t job_id = (size_t)&callback;
-  params.job_id = job_id;
+  pdfParams.job_id = job_id;
+  pdfParams.params.document_cookie = PrintSettings::NewCookie(); // why?
   job_id_to_pdf_[job_id] = callback;
-  Send(new PrintMsg_PrintToPDF(routing_id(), params));
+  Send(new PrintMsg_PrintToPDF(routing_id(), pdfParams));
   return true;
 }
 

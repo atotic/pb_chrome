@@ -298,7 +298,7 @@ void PageCaptureSaveAsPDFFunction::DidPrintToPDF(const PrintHostMsg_DidPrintToPD
       return;
     }
 
-    if (didParams.metafile_data_size > 400 × 1024 × 1024) {
+    if (didParams.metafile_data_size > (100 * 1024 * 1024)) {
       ReturnFailure(kFileTooBigError);
       return;
     }

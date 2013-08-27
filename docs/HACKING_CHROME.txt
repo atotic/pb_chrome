@@ -3,7 +3,7 @@ My code:
 Checkout:
 
 mkdir chromium; cd chromium
-gclient config https://src.chromium.org/chrome/releases/30.0.1599.0
+gclient config https://src.chromium.org/chrome/releases/30.0.1599.9
 svn ls https://src.chromium.org/chrome
 gclient sync
 
@@ -11,8 +11,10 @@ Building:
 
 cd src
 export GYP_GENERATORS=ninja; export GYP_DEFINES=clang=1; ./build/gyp_chromium
-ninja -C out/Debug chrome
+ninja -C out/Debug chrome; ninja -C out/Release chrome
+ninja -C out/Debug chrome;
 ninja -C out/Release chrome # for relase builds
+ninja -C out/Debug chrome; ninja -C out/Release chrome
 
 Debugging on OS X:
 http://www.chromium.org/developers/debugging-on-os-x
