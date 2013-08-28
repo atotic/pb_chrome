@@ -7,11 +7,15 @@ gclient config https://src.chromium.org/chrome/releases/30.0.1599.9
 svn ls https://src.chromium.org/chrome
 gclient sync
 
+On Linux, had to change .gclient-entries for jsoncpp. The old repository has moved
+
 Building:
 
+Mac
 cd src
 export GYP_GENERATORS=ninja; export GYP_DEFINES=clang=1; ./build/gyp_chromium
 ninja -C out/Debug chrome; ninja -C out/Release chrome
+
 ninja -C out/Debug chrome;
 ninja -C out/Release chrome # for relase builds
 ninja -C out/Debug chrome; ninja -C out/Release chrome

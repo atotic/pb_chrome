@@ -1,0 +1,12 @@
+PATCH.txt
+
+use copy.sh to get changes from the tree
+
+To apply the pageCapture patch
+
+cd ~/chromium/src
+svn patch < ~/pb4us/pb_chrome/patch/pageCapture.patch
+
+To apply threading patch (avoids assert crashes for threading violations)
+cd ~/chromium/src/base
+svn patch < ~/pb4us/pb_chrome/patch/threading.patch

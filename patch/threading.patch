@@ -1,0 +1,38 @@
+Index: file_util_posix.cc
+===================================================================
+--- file_util_posix.cc	(revision 217147)
++++ file_util_posix.cc	(working copy)
+@@ -149,7 +149,7 @@
+ }  // namespace
+ 
+ FilePath MakeAbsoluteFilePath(const FilePath& input) {
+-  ThreadRestrictions::AssertIOAllowed();
++//  ThreadRestrictions::AssertIOAllowed();
+   char full_path[PATH_MAX];
+   if (realpath(input.value().c_str(), full_path) == NULL)
+     return FilePath();
+Index: threading/platform_thread_posix.cc
+===================================================================
+--- threading/platform_thread_posix.cc	(revision 217147)
++++ threading/platform_thread_posix.cc	(working copy)
+@@ -224,7 +224,7 @@
+   // Joining another thread may block the current thread for a long time, since
+   // the thread referred to by |thread_handle| may still be running long-lived /
+   // blocking tasks.
+-  base::ThreadRestrictions::AssertIOAllowed();
++  // base::ThreadRestrictions::AssertIOAllowed();
+   pthread_join(thread_handle.handle_, NULL);
+ }
+ 
+Index: threading/thread_restrictions.cc
+===================================================================
+--- threading/thread_restrictions.cc	(revision 217147)
++++ threading/thread_restrictions.cc	(working copy)
+@@ -34,6 +34,7 @@
+ 
+ // static
+ void ThreadRestrictions::AssertIOAllowed() {
++  return;
+   if (g_io_disallowed.Get().Get()) {
+     LOG(FATAL) <<
+         "Function marked as IO-only was called from a thread that "

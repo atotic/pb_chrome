@@ -12,6 +12,6 @@ cp  $SRC/chrome/common/extensions/api/page_capture.json $DEST
 cp  $SRC/chrome/renderer/printing/print_web_view_helper.cc $DEST
 cp  $SRC/chrome/renderer/printing/print_web_view_helper.h $DEST
 
-pushd /Users/atotic/chromium2/src
-svn diff > $DEST/pookio.patch
+pushd /Users/atotic/chromium2/src/chrome
+svn diff > $DEST/pageCapture.patch
 popd

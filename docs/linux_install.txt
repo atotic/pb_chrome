@@ -11,32 +11,29 @@ svn co http://src.chromium.org/svn/trunk/tools/depot_tools
 cat export PATH="$PATH":`pwd`/depot_tools >> .bashrc
 
 # move git ssh keys to ~/.ssh
+cp /media/pfs/Home/.ssh .
+# edit ~/.ssh/config paths to point to local paths
 
 # checkout pb projects
-mkdir ~/pb
-cd pb
-git clone git@github.com:atotic/pb_chrome.git
-git clone git@github.com:atotic/pb_templates.git
-git clone git@github.com:atotic/pb_server.git
-mkdir pb_data
-
+git clone git@github.com:atotic/pb4us.git
+cd pb4us
+./git4us clone
 
 # checkout chromium
 mkdir chromium
 cd chromium
-gclient config http://src.chromium.org/svn/releases/18.0.976.0
+gclient config https://src.chromium.org/chrome/releases/30.0.1599.9
 gclient sync
+./build/install-build-deps.sh
 
 # apply the patch
-cd ~/chromium/src
-cp ~/pb/pb_chrome/pdf_saver.patch .
-patch -p0 < pdf_saver.patch
+cd src
+patch -p0 < ~/pb/pb_chrome/patch/pookio.patch
 
 # build chromium
 # dependency install is interactive, fonts, gold linker
-./build/install-build-deps.sh 
 ./build/gyp_chromium -D disable_nacl=1
-make chrome -j2 BUILDTYPE=Release
+ninja -C out/Debug chrome; ninja -C out/Release chrome
 
 # install sublime text: optional
 sudo add-apt-repository ppa:webupd8team/sublime-text-2
@@ -70,7 +67,7 @@ mysql -u root -p < db/setup.sql
 # install binaries
 sudo apt-get install pdftk imagemagick graphicsmagick
 
-#install weird debug gems, this gist only works for ruby 1.9.3p125 on rvm 
+#install weird debug gems, this gist only works for ruby 1.9.3p125 on rvm
 bash < <(curl -L https://raw.github.com/gist/1880767)
 
 cd ~/pb/pb_server
