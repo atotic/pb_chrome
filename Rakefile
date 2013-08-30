@@ -30,4 +30,16 @@ namespace :chrome do
 		File.open('bin/linux_64/chrome_daemon.sh', 'w', 0755) { |f| f << script}
 		puts 'chrome_daemon.sh updated'
 	end
+
+	desc "Download binaries"
+	task :download_binaries do
+		STDERR.write "Filed a support request at github on how to do this"
+		# download the binaries to bin (platform dependent)
+		# gunzip
+		# We on the API side of things try to keep up with the web site, but there's so... much... shipping.
+		# Releases are one of those things we'd love to add to the API soon, but we can't promise when we'll roll that out. Keep an eye on the developer docs for updates if/when we offer a Releases API.
+		# Cheers,
+		# Wynn Netherland
+		# Developer, GitHub
+	end
 end

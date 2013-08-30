@@ -1,4 +1,11 @@
-My code:
+Compiled binaries are too big for git repository, so we are putting them in
+github release instead. Current release is at:
+https://github.com/atotic/pb_chrome/releases/tag/v30.0.1599.9
+https://github.com/atotic/pb_chrome/releases/download/v30.0.1599.9/chromium_linux.tar.gz
+https://github.com/atotic/pb_chrome/releases/download/v30.0.1599.9/chromium_mac.tar.gz
+
+Patch submitted to chromium:
+https://code.google.com/p/chromium/issues/detail?id=169337
 
 Checkout:
 
