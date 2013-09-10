@@ -2033,7 +2033,7 @@ PrintWebViewHelper::PrintToPDFErrorBuckets PrintWebViewHelper::RenderPageToMetaf
     return PDF_ERROR_SKIA_FINISH_PAGE;
     NOTREACHED() << "metafile failed";
   }
-  return PrintToPDFErrorBuckets::PDF_ERROR_NONE;
+  return PDF_ERROR_NONE;
 }
 
 void PrintWebViewHelper::OnPrintToPDF(const PrintMsg_PrintToPDF_Params& pdfParams) {
@@ -2073,7 +2073,7 @@ void PrintWebViewHelper::OnPrintToPDF(const PrintMsg_PrintToPDF_Params& pdfParam
   // Send response back
   PrintHostMsg_DidPrintToPDF_Params didpdf_params;
   didpdf_params.job_id = pdfParams.job_id;
-  didpdf_params.pdf_error_code = PrintToPDFErrorBuckets::PDF_ERROR_NONE;
+  didpdf_params.pdf_error_code = PDF_ERROR_NONE;
   if (!CopyMetafileDataToSharedMem(&metafile,
                                    &(didpdf_params.metafile_data_handle))) {
     LOG(ERROR) << "CopyMetafileDataToSharedMem failed";

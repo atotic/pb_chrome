@@ -1,5 +1,6 @@
-DEST=/Users/atotic/pb4us/pb_chrome/patch
-SRC=/Users/atotic/chromium2/src
+HOME=/home/atotic
+DEST=$HOME/pb4us/pb_chrome/patch
+SRC=$HOME/chromium/src
 
 echo "copying .h|.cc"
 cp  $SRC/chrome/browser/extensions/api/page_capture/page_capture_api.h $DEST
@@ -12,6 +13,6 @@ cp  $SRC/chrome/common/extensions/api/page_capture.json $DEST
 cp  $SRC/chrome/renderer/printing/print_web_view_helper.cc $DEST
 cp  $SRC/chrome/renderer/printing/print_web_view_helper.h $DEST
 
-pushd /Users/atotic/chromium2/src/chrome
-svn diff > $DEST/pageCapture.patch
+pushd $HOME/chromium/src/chrome
+svn diff > $DEST/saveAsPDF.patch
 popd
