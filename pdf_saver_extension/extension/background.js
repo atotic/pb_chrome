@@ -1,12 +1,17 @@
 "use strict"
 var TEST_MODE = false;
 
-function getServerUrl() {
+function getPdfSaverUrl() {
 	return localStorage['pdfServer'] || "http://localhost:27000/";
 }
 
+function getPdfConverterUrl() {
+  return localStorage['pdfConverter'] || 'http://localhost:26000/pdf_converter';
+}
+
 function getAuthenticationUrl() {
-	return "http://dev.pb4us.com/login_as_printerABCDEFG";
+	// return "http://dev.pb4us.com/login_as_printerABCDEFG";
+	return localStorage['authenticationUrl'] || "http://localhost:26000/login_as_printerABCDEFG";
 }
 
 function notifyProblem(msg) {
@@ -48,7 +53,7 @@ BookConversion.prototype = {
 		this.startTime = Date.now();
 		var THIS = this;
 		this.closeTab = false;
-		chrome.tabs.update(tabId, { url: 'http://dev.pb4us.com/pdf_converter' }, function() {
+		chrome.tabs.update(tabId, { url: getPdfConverterUrl() }, function() {
 			THIS.didCreateTab(tabId);
 		});
 	},
@@ -78,7 +83,7 @@ BookConversion.prototype = {
 	},
 	createTab: function() {
 		var THIS = this;
-		chrome.tabs.create({'windowId': this.windowId, 'url': 'http://dev.pb4us.com/pdf_converter' },
+		chrome.tabs.create({'windowId': this.windowId, 'url': getPdfConverterUrl() },
 				function(tab) { THIS.didCreateTab(tab.id) });
 	},
 	didCreateTab: function(tabId) {
@@ -159,7 +164,7 @@ BookConversion.prototype = {
 	pdfBlobToServer: function(pageId, blob) {
 		var THIS = this;
 		var xhr = new XMLHttpRequest();
-		var url = getServerUrl() + "pdf_upload?request_id=" + this.serverRequestId + "&page_id=" + this.pageId;
+		var url = getPdfSaverUrl() + "pdf_upload?request_id=" + this.serverRequestId + "&page_id=" + this.pageId;
 		var timeStart = Date.now();
 		xhr.onload = function (ev) {
 			if (xhr.status != 200)
@@ -192,7 +197,7 @@ BookConversion.prototype = {
 		xhr.onerror = function(ev) {
 			console.error("work_complete failed. pdf_saver_server might be down.");
 		};
-		var url = getServerUrl() + "work_complete?request_id=" + this.serverRequestId;
+		var url = getPdfSaverUrl() + "work_complete?request_id=" + this.serverRequestId;
 
 		var formData = new FormData();
 		formData.append('request_id', this.serverRequestId);
@@ -262,7 +267,7 @@ function pollForWork() {
 	if (currentConversion)	// just one conversion at a time
 		return;
 	var xhr = new XMLHttpRequest();
-	var url = getServerUrl() + "get_work";
+	var url = getPdfSaverUrl() + "get_work";
 	xhr.open("GET", url, true);
 	xhr.onload = function(ev) {
 		if (xhr.status == 200) {
@@ -314,7 +319,7 @@ setInterval(function() {Authorizer.start()}, 3600000);
 
 if (!TEST_MODE) setInterval(pollForWork, 1000);
 
-var BUTTON_MODE = "TestWork";	// SaveCurrent LoadPDFConverter TestWork
+var BUTTON_MODE = "SaveCurrent"; // "TestWork";	// SaveCurrent LoadPDFConverter TestWork
 
 switch(BUTTON_MODE) {
 case "SaveCurrent":
@@ -323,7 +328,7 @@ case "SaveCurrent":
 			function(tabId, blob) {
 				console.log("successful conversion", blob);
 				var xhr = new XMLHttpRequest();
-				var url = getServerUrl() + "pdf_upload?request_id=test&page_id=test";
+				var url = getPdfSaverUrl() + "pdf_upload?request_id=test&page_id=test";
 				xhr.open("POST", url, true);
 				xhr.onload = function (ev) {
 					if (xhr.status != 200) {
@@ -345,7 +350,7 @@ case "SaveCurrent":
 break;
 case "LoadPDFConverter":
 	chrome.browserAction.onClicked.addListener(function(tab) {
-		chrome.tabs.update(tab.id, { url: 'http://dev.pb4us.com/pdf_converter' }, function( tab ) {
+		chrome.tabs.update(tab.id, { url: getPdfConverterUrl() }, function( tab ) {
 			chrome.tabs.executeScript(tab.id, { file: "content.js" }, function() {
 			console.log("background.js sendMessage");
 			chrome.tabs.sendMessage(tab.id, { action: 'loadBook', bookId: 1});
@@ -358,7 +363,7 @@ case "TestWork":
 //		chrome.tabs.update(tab.id, { url: 'http://dev.pb4us.com/pdf_converter' });
 		var tabId = tab.id;
 		var xhr = new XMLHttpRequest();
-		var url = getServerUrl() + "get_work?book_id=2";
+		var url = getPdfSaverUrl() + "get_work?book_id=2";
 		xhr.open("GET", url, true);
 		xhr.onload = function(ev) {
 			if (xhr.status == 200) {
