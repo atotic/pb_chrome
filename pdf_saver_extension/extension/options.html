@@ -1,47 +1,29 @@
 <html>
-<head><title>My Test Extension Options</title></head>
-<script type="text/javascript">
-
-// Saves options to localStorage.
-function save_options() {
-  var pdfserver = document.getElementById("serverPdf");
-  localStorage["pdfServer"] = pdfserver.value;
-  if (pdfserver.value != "") {
-	  var request = new XMLHttpRequest();
-		var url = localStorage["pdfServer"] + 'test';
-	  request.open('GET', url , false);
-		try {
-	 		request.send(null);
-		}
-		catch(err) {
-			request.status = -1;
-		}
-		var err = document.getElementById("error");
-	  if (request.status != 200) {
-			err.innerText = "Server could not be reached " + request.status + " "+ url;
-			setTimeout(function() { err.innerText = ""}, 6000);
-		}
-		else
-			err.innerText = "";
-	}
-  // Update status to let user know options were saved.
-  var status = document.getElementById("status");
-  status.innerText = "Options Saved.";
-  setTimeout(function() { status.innerText = ""; }, 750);
+<head><title>PDF Saver Extension Options</title></head>
+<style>
+body {
+	font-size: large;
+	line-height: 200%;
 }
-
-// Restores select box state to saved value from localStorage.
-function restore_options() {
-  var pdfserver = document.getElementById("serverPdf");
-  pdfserver.value = localStorage["pdfServer"] || "http://localhost:27000/";
-}
-</script>
-
-<body onload="restore_options()">
-<label for "serverPdf">Save PDFs on server </label><input type="text" size="40" id="serverPdf"/>
+</style>
+<body>
+<label for "pdf_saver">pdf_saver_server host</label> <input type="text" size="60" id="pdf_saver"/>
 <br>
-<button onclick="save_options()">Save</button>
+<label for "pdf_converter">pdf converter url</label> <input type="text" size="60" id="pdf_converter"/>
+<br>
+<label for "authentication_url">authentication url</label> <input type="text" size="60" id="authentication_url"/>
+<br>
+<label for "button_mode">button mode</label> <select id="button_mode">
+<option value="SaveCurrent">Save current page</option>
+<option value="LoadPDFConverter">Load pdf_converter. Use js cmd line to load books, etc</option>
+<option value="TestWork">Gets sample work from server (first book)</option>
+</select>
+<br>
+<label for "poll_for_work">poll for work</label> <input type='checkbox' id='poll_for_work'>
+<br>
+<button id='save'>Save</button>
 <p id="status"></p>
 <p id="error" style="color:red"></p>
+<script src="options.js"></script>
 </body>
 </html>

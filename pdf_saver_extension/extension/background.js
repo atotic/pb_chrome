@@ -1,5 +1,4 @@
 "use strict"
-var TEST_MODE = false;
 
 function getPdfSaverUrl() {
 	return localStorage['pdfServer'] || "http://localhost:27000/";
@@ -266,6 +265,8 @@ function convertTabToPdf(tabId, options, successCb, failCb) {
 function pollForWork() {
 	if (currentConversion)	// just one conversion at a time
 		return;
+	if ( localStorage['pollForWork'] == 'off')
+		return;
 	var xhr = new XMLHttpRequest();
 	var url = getPdfSaverUrl() + "get_work";
 	xhr.open("GET", url, true);
@@ -316,72 +317,82 @@ function authorize() {
 // Refresh authorization every hour
 Authorizer.start();
 setInterval(function() {Authorizer.start()}, 3600000);
+// Poll for work every second
+setInterval(pollForWork, 1000);
 
-if (!TEST_MODE) setInterval(pollForWork, 1000);
+function saveCurrent(tab) {
+	convertTabToPdf( tab.id, {},
+		function(tabId, blob) {
+			console.log("successful conversion", blob);
+			var xhr = new XMLHttpRequest();
+			var url = getPdfSaverUrl() + "pdf_upload?request_id=test&page_id=test";
+			xhr.open("POST", url, true);
+			xhr.onload = function (ev) {
+				if (xhr.status != 200) {
+					notifyProblem("PDF Upload failed. " + xhr.status + "\n" + xhr.responseText);
+				}
+				else
+					console.info("PDF uploaded")
+			};
+			xhr.onerror = function(ev) {
+				notifyProblem("PDF Upload failed. PDF Upload server might be down.");
+			};
+			xhr.send(blob);
 
-var BUTTON_MODE = "SaveCurrent"; // "TestWork";	// SaveCurrent LoadPDFConverter TestWork
+		},
+		function(tabId, message) {
+			console.log("failed conversion", message);
+		}
+	);
+}
 
-switch(BUTTON_MODE) {
-case "SaveCurrent":
-	chrome.browserAction.onClicked.addListener(function(tab) {
-		convertTabToPdf( tab.id, {},
-			function(tabId, blob) {
-				console.log("successful conversion", blob);
-				var xhr = new XMLHttpRequest();
-				var url = getPdfSaverUrl() + "pdf_upload?request_id=test&page_id=test";
-				xhr.open("POST", url, true);
-				xhr.onload = function (ev) {
-					if (xhr.status != 200) {
-						notifyProblem("PDF Upload failed. " + xhr.status + "\n" + xhr.responseText);
-					}
-					else
-						console.info("PDF uploaded")
-				};
-				xhr.onerror = function(ev) {
-					notifyProblem("PDF Upload failed. PDF Upload server might be down.");
-				};
-				xhr.send(blob);
-
-			},
-			function(tabId, message) {
-				console.log("failed conversion", message);
-			});
-	});
-break;
-case "LoadPDFConverter":
-	chrome.browserAction.onClicked.addListener(function(tab) {
-		chrome.tabs.update(tab.id, { url: getPdfConverterUrl() }, function( tab ) {
-			chrome.tabs.executeScript(tab.id, { file: "content.js" }, function() {
+function loadPDFConverter(tab) {
+	chrome.tabs.update(tab.id, { url: getPdfConverterUrl() }, function( tab ) {
+		chrome.tabs.executeScript(tab.id, { file: "content.js" }, function() {
 			console.log("background.js sendMessage");
 			chrome.tabs.sendMessage(tab.id, { action: 'loadBook', bookId: 1});
 		});
-		});
 	});
-break;
-case "TestWork":
-	chrome.browserAction.onClicked.addListener(function(tab) {
-//		chrome.tabs.update(tab.id, { url: 'http://dev.pb4us.com/pdf_converter' });
-		var tabId = tab.id;
-		var xhr = new XMLHttpRequest();
-		var url = getPdfSaverUrl() + "get_work?book_id=2";
-		xhr.open("GET", url, true);
-		xhr.onload = function(ev) {
-			if (xhr.status == 200) {
-				var task = JSON.parse(xhr.responseText);
-				var c = new BookConversion(task.book_json, task.task_id);
-				c.startInTab(tabId);
-			}
-			else if (xhr.status == 204)
-				;
-			else {
-				notifyProblem("Error getting work " + xhr.status);
-			}
-		}
-		xhr.onerror = function(ev) {
-			notifyProblem("Error getting work " + xhr.status);
-		}
-		xhr.send();
-	});
-break;
 }
 
+function testWork(tab) {
+	var tabId = tab.id;
+	var xhr = new XMLHttpRequest();
+	var url = getPdfSaverUrl() + "get_work?book_id=2";
+	xhr.open("GET", url, true);
+	xhr.onload = function(ev) {
+		if (xhr.status == 200) {
+			var task = JSON.parse(xhr.responseText);
+			var c = new BookConversion(task.book_json, task.task_id);
+			c.startInTab(tabId);
+		}
+		else if (xhr.status == 204)
+			;
+		else {
+			notifyProblem("Error getting work " + xhr.status);
+		}
+	}
+	xhr.onerror = function(ev) {
+		notifyProblem("Error getting work " + xhr.status);
+	}
+	xhr.send();
+}
+
+function buttonHandler(tab) {
+	var mode = localStorage['buttonMode'] || 'SaveCurrent';
+	console.log(mode);
+	switch(mode) {
+		case 'SaveCurrent':
+			saveCurrent(tab);
+		break;
+		case 'LoadPDFConverter':
+			console.log("PDFController.loadBook()");
+			console.log('PDFController.showPage()');
+			loadPDFConverter(tab);
+		break;
+		case 'TestWork':
+			testWork(tab);
+		break;
+	}
+}
+chrome.browserAction.onClicked.addListener(buttonHandler);
