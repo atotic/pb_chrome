@@ -35,32 +35,11 @@ Run Chromium from command line as
 out/Debug/Chromium.app/Contents/MacOS/Chromium --renderer-startup-dialog
 Attach to Chromium process, and each subprocess as they show up.
 
-Stock chromium might die because of many asserts. Following mods make it run:
+Stock chromium might die because of many asserts. Apply threading.patch to make it run
 
-base/file_util_posix.cc
-FilePath MakeAbsoluteFilePath(const FilePath& input) {
--  ThreadRestrictions::AssertIOAllowed();
-+//  ThreadRestrictions::AssertIOAllowed();
+This patch enables jpg encoding of images:
 
---- base/threading/platform_thread_posix.cc	(revision 217147)
-+++ base/threading/platform_thread_posix.cc	(working copy)
-@@ -224,7 +224,7 @@
-   // Joining another thread may block the current thread for a long time, since
-   // the thread referred to by |thread_handle| may still be running long-lived /
-   // blocking tasks.
--  base::ThreadRestrictions::AssertIOAllowed();
-+  // base::ThreadRestrictions::AssertIOAllowed();
-   pthread_join(thread_handle.handle_, NULL);
+http://git.chromium.org/gitweb/?p=external/skia.git;a=commitdiff;h=4811286588d4279ad19b01ffc1f96005ad5704a4
 
-Index: base/threading/thread_restrictions.cc
-===================================================================
---- base/threading/thread_restrictions.cc	(revision 217147)
-+++ base/threading/thread_restrictions.cc	(working copy)
-@@ -34,6 +34,7 @@
-
- // static
- void ThreadRestrictions::AssertIOAllowed() {
-+  return;
-   if (g_io_disallowed.Get().Get()) {
-     LOG(FATAL) <<
-         "Function marked as IO-only was called from a thread that "
+Implementing PDF compression in Chrome, should land any day now, I am on cc
+https://code.google.com/p/skia/issues/detail?id=194

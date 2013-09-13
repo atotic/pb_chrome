@@ -88,11 +88,16 @@
             "description": "Called when the PDF has been generated.",
             "parameters": [
               {
-                "name": "pdfData",
-                "type": "binary",
-                "optional": "true",
-                "description": "The PDF data as a Blob."
+                "name": "pdfFilePath",
+                "type": "string",
+                "description": "where file is saved on local filesystem"
               }
+              // {
+              //   "name": "pdfData",
+              //   "type": "binary",
+              //   "optional": "true",
+              //   "description": "The PDF data as a Blob."
+              // }
             ]
           }
         ]

@@ -1,4 +1,4 @@
-HOME=/home/atotic
+HOME=/Users/atotic
 DEST=$HOME/pb4us/pb_chrome/patch
 SRC=$HOME/chromium/src
 

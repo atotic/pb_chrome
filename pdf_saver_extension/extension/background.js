@@ -135,53 +135,81 @@ BookConversion.prototype = {
 		};
 		console.log("converting ", this.pageId, " ", this.pageWidth, "x", this.pageHeight);
 		var THIS = this;
-		chrome.pageCapture.saveAsPDF( saveAsPDFOptions, function(pdfBlob) {
+		chrome.pageCapture.saveAsPDF( saveAsPDFOptions, function(pdfResult) {
 			if ('lastError' in chrome.extension)
 				THIS.fail( { message: "saveAsPDF failed" + chrome.extension.lastError.message } );
-			else
-				THIS.didSaveAsPDF(pdfBlob);
+			else {
+				THIS.didSaveAsPDF(pdfResult);
+			}
 		});
 	},
-	didSaveAsPDF: function(blob) {
-		this.blobToArrayBuffer(blob);
-		this.pdfBlobToServer(this.pageId, blob);
+	didSaveAsPDF: function(pdfResult) {
+		this.pdfResultToServer(pdfResult);
 	},
-	blobToArrayBuffer: function(blob) {
-		var fileReader = new FileReader();
+	pdfResultToServer: function( pdfResult) {
 		var THIS = this;
-		fileReader.onload = function() {
-    		THIS.pdfBlobToServer(THIS.pageId, this.result);
-		};
-		fileReader.onerror = function() {
-			THIS.fail("Could not read file blob " + THIS.pageId);
-		}
-		fileReader.onprogress = function() {
-			console.log("File reader progress");
-		}
-		fileReader.readAsArrayBuffer(blob);
-	},
-	pdfBlobToServer: function(pageId, blob) {
-		var THIS = this;
-		var xhr = new XMLHttpRequest();
 		var url = getPdfSaverUrl() + "pdf_upload?request_id=" + this.serverRequestId + "&page_id=" + this.pageId;
 		var timeStart = Date.now();
+		var xhr = new XMLHttpRequest();
 		xhr.onload = function (ev) {
 			if (xhr.status != 200)
 				THIS.fail("PDF Upload failed. " + THIS.pageId + xhr.status + "\n" + xhr.responseText);
 			else
-				THIS.didPdfBlobToServer();
+				THIS.didPdfResultToServer();
 				console.info("PDF uploaded ", Date.now() - timeStart);
 			};
 		xhr.onerror = function(ev) {
 			THIS.fail("PDF Upload failed. PDF Upload server might be down.");
 		};
+		var fd = new FormData();
+		fd.append('pdf_file_path', pdfResult);
 		xhr.open("POST", url, true);
 //		var bufferView = new Uint32Array(blob);
-		xhr.send(blob);
+		xhr.send(fd);
 	},
-	didPdfBlobToServer: function() {
+	didPdfResultToServer: function() {
 		this.convertNextPage();
 	},
+	// didSaveAsPDF: function(blob) {
+	// 	this.blobToArrayBuffer(blob);
+	// 	this.pdfBlobToServer(this.pageId, blob);
+	// },
+	// blobToArrayBuffer: function(blob) {
+	// 	var fileReader = new FileReader();
+	// 	var THIS = this;
+	// 	fileReader.onload = function() {
+ //    		THIS.pdfBlobToServer(THIS.pageId, this.result);
+	// 	};
+	// 	fileReader.onerror = function() {
+	// 		THIS.fail("Could not read file blob " + THIS.pageId);
+	// 	}
+	// 	fileReader.onprogress = function() {
+	// 		console.log("File reader progress");
+	// 	}
+	// 	fileReader.readAsArrayBuffer(blob);
+	// },
+// 	pdfBlobToServer: function(pageId, blob) {
+// 		var THIS = this;
+// 		var xhr = new XMLHttpRequest();
+// 		var url = getPdfSaverUrl() + "pdf_upload?request_id=" + this.serverRequestId + "&page_id=" + this.pageId;
+// 		var timeStart = Date.now();
+// 		xhr.onload = function (ev) {
+// 			if (xhr.status != 200)
+// 				THIS.fail("PDF Upload failed. " + THIS.pageId + xhr.status + "\n" + xhr.responseText);
+// 			else
+// 				THIS.didPdfBlobToServer();
+// 				console.info("PDF uploaded ", Date.now() - timeStart);
+// 			};
+// 		xhr.onerror = function(ev) {
+// 			THIS.fail("PDF Upload failed. PDF Upload server might be down.");
+// 		};
+// 		xhr.open("POST", url, true);
+// //		var bufferView = new Uint32Array(blob);
+// 		xhr.send(blob);
+// 	},
+// 	didPdfBlobToServer: function() {
+// 		this.convertNextPage();
+// 	},
 	fail: function(error) {
 		console.error("PDF conversion failed ", this.pageId ? this.pageId : "");
 		console.error(error.message);
@@ -248,11 +276,11 @@ function convertTabToPdf(tabId, options, successCb, failCb) {
 			saveAsPDFOptions[propName] = options[p];
 	}
 	try {
-		chrome.pageCapture.saveAsPDF( saveAsPDFOptions, function(pdfBlob) {
+		chrome.pageCapture.saveAsPDF( saveAsPDFOptions, function(pdfResult) {
 			if ('lastError' in chrome.extension)
 				failCb(tabId, chrome.extension.lastError.message);
 			else
-				successCb(tabId, pdfBlob);
+				successCb(tabId, pdfResult);
 		});
 	}
 	catch(ex) {
@@ -322,11 +350,13 @@ setInterval(pollForWork, 1000);
 
 function saveCurrent(tab) {
 	convertTabToPdf( tab.id, {},
-		function(tabId, blob) {
-			console.log("successful conversion", blob);
+		function(tabId, pdfResult) {
+			console.log("successful conversion", pdfResult);
 			var xhr = new XMLHttpRequest();
 			var url = getPdfSaverUrl() + "pdf_upload?request_id=test&page_id=test";
-			xhr.open("POST", url, true);
+			var fd = new FormData();
+			fd.append('pdf_file_path', pdfResult);
+
 			xhr.onload = function (ev) {
 				if (xhr.status != 200) {
 					notifyProblem("PDF Upload failed. " + xhr.status + "\n" + xhr.responseText);
@@ -337,7 +367,8 @@ function saveCurrent(tab) {
 			xhr.onerror = function(ev) {
 				notifyProblem("PDF Upload failed. PDF Upload server might be down.");
 			};
-			xhr.send(blob);
+			xhr.open("POST", url, true);
+			xhr.send(fd);
 
 		},
 		function(tabId, message) {

@@ -34,7 +34,7 @@ namespace SaveAsMHTML = extensions::api::page_capture::SaveAsMHTML;
 
 namespace {
 
-const char kFileTooBigError[] = "The MHTML file generated is too big.";
+const char kFileTooBigError[] = "The captured file generated is too big.";
 const char kMHTMLGenerationFailedError[] = "Failed to generate MHTML.";
 const char kTemporaryFileError[] = "Failed to create a temporary file.";
 const char kTabClosedError[] = "Cannot find the tab for thie request.";
@@ -208,6 +208,9 @@ WebContents* PageCaptureSaveAsMHTMLFunction::GetWebContents() {
 
 namespace SaveAsPDF = extensions::api::page_capture::SaveAsPDF;
 
+const char kMetafileMapError[] = "Could not map metafile.";
+const char kPDFGenerationError[] = "Internal pdf generation error ";
+
 PageCaptureSaveAsPDFFunction::PageCaptureSaveAsPDFFunction() :
     tab_id_(0),
     paper_size_width_(612),
@@ -268,51 +271,52 @@ bool PageCaptureSaveAsPDFFunction::RunImpl() {
         break;
     }
   }
+  BrowserThread::PostTask(
+      BrowserThread::FILE, FROM_HERE,
+      base::Bind(&PageCaptureSaveAsPDFFunction::CreateTemporaryFile, this));
+  return true;
+}
+void PageCaptureSaveAsPDFFunction::CreateTemporaryFile() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
+  bool success = file_util::CreateTemporaryFile( &mpdf_path_);
+  BrowserThread::PostTask( BrowserThread::UI, FROM_HERE,
+      base::Bind( &PageCaptureSaveAsPDFFunction::TemporaryFileCreated, this, success));
+}
+
+void PageCaptureSaveAsPDFFunction::TemporaryFileCreated(bool success) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  // If we were returning a blob, we'd set up shareable file reference just like MHTML
+  if (!success) {
+    ReturnFailure(kTemporaryFileError);
+    return;
+  }
+  RequestPDF();
+}
+
+void PageCaptureSaveAsPDFFunction::RequestPDF() {
   WebContents* web_contents = GetWebContents();
   if (!web_contents) {
     ReturnFailure(kTabClosedError);
-    return false;
+    return;
   }
 
   printing::PrintViewManager* print_view_manager =
             printing::PrintViewManager::FromWebContents(web_contents);
 
   PrintMsg_PrintToPDF_Params params;
+  int child_id = render_view_host()->GetProcess()->GetID();
+  ChildProcessSecurityPolicy::GetInstance()->GrantCreateReadWriteFile(
+      child_id, mpdf_path_);
   FillPDFParams(params);
-  print_view_manager->PrintToPDF(params, base::Bind(&PageCaptureSaveAsPDFFunction::DidPrintToPDF, this));
 
-  // BrowserThread::PostTask(
-  //     BrowserThread::FILE, FROM_HERE,
-  //     base::Bind(&PageCaptureSaveAsPDFFunction::CreateTemporaryFile, this));
-  return true;
+  print_view_manager->PrintToPDF(params,
+    base::Bind(&PageCaptureSaveAsPDFFunction::DidPrintToPDF, this));
 }
-
-const char kMetafileMapError[] = "Could not map metafile.";
-const char kPDFGenerationError[] = "Internal pdf generation error ";
 
 void PageCaptureSaveAsPDFFunction::DidPrintToPDF(const PrintHostMsg_DidPrintToPDF_Params& didParams) {
 
   if (didParams.pdf_error_code == 0) {
-    if (didParams.metafile_data_size <= 0) {
-      ReturnFailure(kMHTMLGenerationFailedError);
-      return;
-    }
-
-    if (didParams.metafile_data_size > (100 * 1024 * 1024)) {
-      ReturnFailure(kFileTooBigError);
-      return;
-    }
-    scoped_ptr<base::SharedMemory> shared_buf(new base::SharedMemory(didParams.metafile_data_handle, true));
-    if (!shared_buf->Map(didParams.metafile_data_size)) {
-      NOTREACHED() << "Could not map shared memory";
-      ReturnFailure(kMetafileMapError);
-      return ;
-    }
-    BinaryValue* pdf_value = BinaryValue::CreateWithCopiedBuffer((char*)shared_buf->memory(),  didParams.metafile_data_size);
-    SetResult(pdf_value);
-    BrowserThread::PostTask(
-        BrowserThread::UI, FROM_HERE,
-        base::Bind(&PageCaptureSaveAsPDFFunction::SendResponse, this, true));
+    ReturnSuccess(didParams.pdf_file_path);
   }
   else {
     std::stringstream ss;
@@ -321,6 +325,33 @@ void PageCaptureSaveAsPDFFunction::DidPrintToPDF(const PrintHostMsg_DidPrintToPD
   }
 }
 
+
+void PageCaptureSaveAsPDFFunction::ReturnSuccess(const std::string& pdfPath) {
+    base::StringValue * result = new base::StringValue(pdfPath);
+    SetResult(result);
+
+    BrowserThread::PostTask( BrowserThread::UI, FROM_HERE,
+        base::Bind(&PageCaptureSaveAsPDFFunction::SendResponse, this, true));
+    Release();
+    // Old code when we were sending the entire file buffer
+    // if (didParams.metafile_data_size <= 0) {
+    //   ReturnFailure(kMHTMLGenerationFailedError);
+    //   return;
+    // }
+
+    // if (didParams.metafile_data_size > (256 * 1024 * 1024)) {
+    //   ReturnFailure(kFileTooBigError);
+    //   return;
+    // }
+    // scoped_ptr<base::SharedMemory> shared_buf(new base::SharedMemory(didParams.metafile_data_handle, true));
+    // if (!shared_buf->Map(didParams.metafile_data_size)) {
+    //   NOTREACHED() << "Could not map shared memory";
+    //   ReturnFailure(kMetafileMapError);
+    //   return ;
+    // }
+    // BinaryValue* pdf_value = BinaryValue::CreateWithCopiedBuffer((char*)shared_buf->memory(),  didParams.metafile_data_size);
+    // SetResult(pdf_value);
+}
 
 void PageCaptureSaveAsPDFFunction::ReturnFailure(const std::string& error) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
@@ -347,6 +378,7 @@ WebContents* PageCaptureSaveAsPDFFunction::GetWebContents() {
 
 void PageCaptureSaveAsPDFFunction::FillPDFParams(PrintMsg_PrintToPDF_Params &pdfParams) {
 
+  pdfParams.pdf_file_path = mpdf_path_.value();
   // Specifies dots per inch. // double
   pdfParams.params.dpi = printing::kPointsPerInch;
   // Desired apparent dpi on paper., int

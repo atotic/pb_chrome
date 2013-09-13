@@ -1,0 +1,8 @@
+Chrome must be run with --no-sandbox flag.
+
+We need to bypass the sandbox because page_capture.cc does not know how to allow printing process access to pdf_file
+
+This line should do the job, but it does not. I suspect that child_id of print_web_view_helper process is different.
+int child_id = render_view_host()->GetProcess()->GetID();
+ChildProcessSecurityPolicy::GetInstance()->GrantCreateReadWriteFile(child_id, pdfPath);
+

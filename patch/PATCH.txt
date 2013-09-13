@@ -10,3 +10,14 @@ svn patch < ~/pb4us/pb_chrome/patch/pageCapture.patch
 To apply threading patch (avoids assert crashes for threading violations)
 cd ~/chromium/src/base
 svn patch < ~/pb4us/pb_chrome/patch/threading.patch
+
+TEMP DIFFS
+page_capture_api.cc
+37c37
+< const char kFileTooBigError[] = "The captured file generated is too big.";
+---
+> const char kFileTooBigError[] = "The MHTML file generated is too big.";
+301c301
+<     if (didParams.metafile_data_size > (256 * 1024 * 1024)) {
+---
+>     if (didParams.metafile_data_size > (100 * 1024 * 1024)) {

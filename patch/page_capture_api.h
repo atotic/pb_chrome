@@ -76,10 +76,15 @@ class PageCaptureSaveAsPDFFunction : public AsyncExtensionFunction {
   virtual ~PageCaptureSaveAsPDFFunction();
   virtual bool RunImpl() OVERRIDE;
 
+  void CreateTemporaryFile();
+  void TemporaryFileCreated(bool success);
+  void RequestPDF();
+
   void DidPrintToPDF(const PrintHostMsg_DidPrintToPDF_Params& didParams);
 
   // Called on the UI thread
   void ReturnFailure(const std::string& error);
+  void ReturnSuccess(const std::string& pdfPath);
 
 // Returns the WebContents we are associated with, NULL if it's been closed.
   content::WebContents* GetWebContents();
@@ -96,6 +101,8 @@ class PageCaptureSaveAsPDFFunction : public AsyncExtensionFunction {
   int margin_bottom_;
   int margin_right_;
   int dpi_;
+
+  base::FilePath mpdf_path_;
 
   DECLARE_EXTENSION_FUNCTION("pageCapture.saveAsPDF", PAGECAPTURE_SAVEASPDF)
 

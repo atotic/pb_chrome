@@ -10,6 +10,7 @@
 #include "base/command_line.h"
 #include "base/json/json_writer.h"
 #include "base/logging.h"
+#include "base/file_util.h"
 #include "base/message_loop/message_loop.h"
 #include "base/metrics/histogram.h"
 #include "base/process/process_handle.h"
@@ -1714,6 +1715,16 @@ bool PrintWebViewHelper::CheckForCancel() {
   return cancel;
 }
 
+static bool CopyMetafileToFile(Metafile& metafile, base::FilePath& fileName) {
+  // copy data to file
+  bool success = metafile.SaveTo(fileName);
+  if (!success) {
+    LOG(ERROR) << "Failed to save metafile to file";
+    return false;
+  }
+  return true;
+}
+
 bool PrintWebViewHelper::PreviewPageRendered(int page_number,
                                              Metafile* metafile) {
   DCHECK_GE(page_number, FIRST_PAGE_INDEX);
@@ -2074,165 +2085,29 @@ void PrintWebViewHelper::OnPrintToPDF(const PrintMsg_PrintToPDF_Params& pdfParam
   PrintHostMsg_DidPrintToPDF_Params didpdf_params;
   didpdf_params.job_id = pdfParams.job_id;
   didpdf_params.pdf_error_code = PDF_ERROR_NONE;
-  if (!CopyMetafileDataToSharedMem(&metafile,
-                                   &(didpdf_params.metafile_data_handle))) {
-    LOG(ERROR) << "CopyMetafileDataToSharedMem failed";
+  // if (!CopyMetafileDataToSharedMem(&metafile,
+  //                                  &(didpdf_params.metafile_data_handle))) {
+  //   LOG(ERROR) << "CopyMetafileDataToSharedMem failed";
+  //   PrintToPDFFail(pdfParams.job_id, PDF_ERROR_METAFILE_COPY_FAILED);
+  //   return;
+  // }
+  base::FilePath path(pdfParams.pdf_file_path);
+  //   bool success = file_util::CreateTemporaryFile(&path);
+  // if (!success) {
+  //   LOG(ERROR) << "Failed to create temp file";
+  //   return false;
+  // }
+
+  if (!CopyMetafileToFile(metafile, path)) {
+    LOG(ERROR) << "CopyMetafileToTempFile failed";
     PrintToPDFFail(pdfParams.job_id, PDF_ERROR_METAFILE_COPY_FAILED);
     return;
   }
-  didpdf_params.metafile_data_size = metafile.GetDataSize();
+  else
+    LOG(ERROR) << "PDF file saved" << path.value();
+  didpdf_params.pdf_file_path = path.value();
+  // didpdf_params.metafile_data_size = metafile.GetDataSize();
   Send(new PrintHostMsg_DidPrintToPDF(routing_id(), didpdf_params));
 }
-
-// void PrintWebViewHelper::OnPrintToPDF( const PrintMsg_PrintToPDF_Params& pdfParams ) {
-//   // COPIED FROM ::PRINT
-//   WebKit::WebFrame* frame;
-//   WebKit::WebNode node = WebKit::WebNode();
-//   GetPrintFrame(&frame);
-//   if (prep_frame_view_) {
-//     DidFinishPrinting(FAIL_PRINT);
-//     return;
-//   }
-//   FrameReference frame_ref(frame);
-//   int expected_page_count = 0;
-//   if (!CalculateNumberOfPages(frame, node, &expected_page_count)) {
-//     DidFinishPrinting(FAIL_PRINT_INIT);
-//     return;  // Failed to init print page settings.
-//   }
-//   // Some full screen plugins can say they don't want to print.
-//   if (!expected_page_count) {
-//     DidFinishPrinting(FAIL_PRINT);
-//     return;
-//   }
-
-//   // TODO Set up print settings here
-//   // Ask the browser to show UI to retrieve the final print settings.
-//   // if (!GetPrintSettingsFromUser(frame_ref.GetFrame(), node,
-//   //                               expected_page_count)) {
-//   //   DidFinishPrinting(OK);  // Release resources and fail silently.
-//   //   return;
-//   // }
-
-//   // COPIED FROM ::RenderPagesForPrint
-//   if (!frame || prep_frame_view_) {
-//     LOG(ERROR) << "RenderPagesForPrint failed";
-//     DidFinishPrinting(FAIL_PRINT);
-//     return;
-//   }
-//   const PrintMsg_PrintPages_Params& params = *print_pages_params_;
-//   // TODO use our params
-//   const PrintMsg_Print_Params& print_params = pdfParams.params;
-//   prep_frame_view_.reset( new PrepareFrameAndViewForPrint(print_params, frame, node, ignore_css_margins_));
-//   DCHECK(!print_pages_params_->params.selection_only || print_pages_params_->pages.empty());
-//   // prep_frame_view_->CopySelectionIfNeeded(
-//   //     render_view()->GetWebkitPreferences(),
-//   //     base::Bind(&PrintWebViewHelper::OnFramePreparedForPrintPages,
-//   //                base::Unretained(this)));
-//   // COPIED FROM ::OnFramePreparedForPrintPages
-//     // COPIED FROM ::PrintPages
-//     if (!prep_frame_view_)  // Printing is already canceled or failed.
-//   return;
-//   prep_frame_view_->StartPrinting();
-
-//   int page_count = prep_frame_view_->GetExpectedPageCount();
-//   if (!page_count) {
-//     LOG(ERROR) << "Can't print 0 pages.";
-//     return DidFinishPrinting(FAIL_PRINT);
-//   }
-
-
-//   if (!PrintPagesNative(prep_frame_view_->frame(), prep_frame_view_->node(),
-//                         page_count, prep_frame_view_->GetPrintCanvasSize())) {
-//     LOG(ERROR) << "Printing failed.";
-//     return DidFinishPrinting(FAIL_PRINT);
-//   }
-//   FinishFramePrinting();
-
-//   if (!RenderPagesForPrint(frame_ref.GetFrame(), node)) {
-//     LOG(ERROR) << "RenderPagesForPrint failed";
-//     DidFinishPrinting(FAIL_PRINT);
-//   }
-//   ResetScriptedPrintCount();
-// }
-// void PrintWebViewHelper::OnPrintToPDF(const PrintMsg_PrintToPDF_Params& pdfParams) {
-//   /*
-//     PrintMsg_PrintPages_Params contains page_number
-//       PrintMsg_Print_Params have page_size, content_size, margin_top etc
-//     PrintMsg_PrintPages_Params
-//    */
-//   // Initialize virtual printer
-
-//   //
-//   WebKit::WebFrame* frame;
-//   if (!GetPrintFrame(&frame)) {
-//     // PrintToPDFFinishedError("GetPrintFrame failed", pdfParams.params.job_id);
-//     return;
-//   }
-//   const WebKit::WebNode& node = WebKit::WebNode();
-
-//   PrepareFrameAndViewForPrint prepare(pdfParams.params, frame, node, ignore_css_margins_);
-
-//   // UpdatePrintableSizeInPrintParameters(frame, node, &prepare, &print_params);
-
-//   // Print to file
-//   // const printing::PageSetup page_setup = print_settings.page_setup_device_units();
-//   printing::PdfMetafileSkia metafile;
-//   if (!metafile.Init())
-//     return;
-//   int page_count = prepare.GetExpectedPageCount();
-//   bool err;
-//   // inspired by print_web_view_helper_linux.cc PrinteWebViewHelper::PrintPageInternal
-//   for (int i = 0; i < page_count; ++i) {
-//     double scale_factor = 1.0f;
-//     PageSizeMargins page_layout_in_points;
-//     ComputePageLayoutInPointsForCss( frame, i, pdfParams.params,
-//                                   ignore_css_margins_, &scale_factor,
-//                                   &page_layout_in_points);
-//     gfx::Size page_size;
-//     gfx::Rect content_area;
-//     GetPageSizeAndContentAreaFromPageLayout(page_layout_in_points, &page_size,
-//                                             &content_area);
-
-//     gfx::Rect canvas_area =
-//         pdfParams.params.display_header_footer ? gfx::Rect(page_size) : content_area;
-
-//     SkDevice* device = metafile.StartPageForVectorCanvas(page_size, canvas_area,
-//                                                           scale_factor);
-//     if (!device)
-//       return;
-
-//   // The printPage method take a reference to the canvas we pass down, so it
-//   // can't be a stack object.
-//     skia::RefPtr<skia::VectorCanvas> canvas = skia::AdoptRef(new skia::VectorCanvas(device));
-//     MetafileSkiaWrapper::SetMetafileOnCanvas(*canvas, &metafile);
-//     skia::SetIsDraftMode(*canvas, false);
-
-//     if (pdfParams.params.display_header_footer) {
-//       // |page_number| is 0-based, so 1 is added.
-//       // TODO(vitalybuka) : why does it work only with 1.25?
-//       PrintHeaderAndFooter(canvas.get(), i + 1,
-//                            page_count,
-//                            scale_factor / 1.25,
-//                            page_layout_in_points, *header_footer_info_,
-//                            pdfParams.params);
-//     }
-//     RenderPageContent(frame, i, canvas_area, content_area,
-//                       scale_factor, canvas.get());
-//     // Done printing. Close the device context to retrieve the compiled metafile.
-//     if (!metafile.FinishPage())
-//       NOTREACHED() << "metafile failed";
-//   }
-//   err = metafile.FinishDocument();
-//   DCHECK(err);
-//   err = metafile.SaveTo(pdfParams.pdf_path);
-//   DCHECK(err);
-
-//   // PrintHostMsg_PrintToPDFFinished_Params reply;
-//   // reply.error = false;
-//   // reply.job_id = pdfParams.job_id;
-//   // reply.message = "";
-//   // reply.file_size = metafile.GetDataSize();
-//   // Send(new PrintHostMsg_PrintToPDFFinished(routing_id(), reply));
-// }
 
 }  // namespace printing
