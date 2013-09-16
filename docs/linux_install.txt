@@ -6,9 +6,17 @@ export PS1='\W> '
 # general linux tools
 sudo apt-get install subversion git g++
 
+# .bashrc
+export GIT_AUTHOR_NAME="Aleks Totic"
+export GIT_AUTHOR_EMAIL="a@totic.org"
+export PS1='\W> '
+export PATH="$PATH":/home/atotic/depot_tools
+export PATH="$HOME/.rbenv/bin:$PATH"
+eval "$(rbenv init -)"
+
 # install/configure depot_tools
 svn co http://src.chromium.org/svn/trunk/tools/depot_tools
-cat export PATH="$PATH":`pwd`/depot_tools >> .bashrc
+#cat export PATH="$PATH":`pwd`/depot_tools >> .bashrc
 
 # move git ssh keys to ~/.ssh
 cp /media/pfs/Home/.ssh .
@@ -36,41 +44,26 @@ patch -p0 < ~/pb/pb_chrome/patch/pookio.patch
 ninja -C out/Debug chrome; ninja -C out/Release chrome
 
 # install sublime text: optional
-sudo add-apt-repository ppa:webupd8team/sublime-text-2
-sudo apt-get update
-sudo apt-get install sublime-text-2
+http://www.sublimetext.com/3
+sudo dpkg -i sublime-text.deb
 
-# install rvm. This is single-user install, on linode we will need multi-user
-# instructions at http://beginrescueend.com/rvm/install/
-bash -s stable < <(curl -s https://raw.github.com/wayneeseguin/rvm/master/binscripts/rvm-installer)
-source /home/atotic/.rvm/scripts/rvm
-sudo apt-get install build-essential openssl libreadline6 libreadline6-dev curl git-core zlib1g zlib1g-dev libssl-dev libyaml-dev libsqlite3-dev sqlite3 libxml2-dev libxslt-dev autoconf libc6-dev ncurses-dev automake libtool bison subversion
-rvm install 1.9.3
-
-# install mariadb
-# see http://askubuntu.com/questions/64772/how-to-install-mariadb
-# append these lines to /etc/apt/sources.list
-# MariaDB repository list - created 2012-03-27 23:12 UTC
-# http://downloads.askmonty.org/mariadb/repositories/
-deb http://ftp.osuosl.org/pub/mariadb/repo/5.3/ubuntu oneiric main
-deb-src http://ftp.osuosl.org/pub/mariadb/repo/5.3/ubuntu oneiric main
-# update repo gpg key
-sudo apt-key adv --recv-keys --keyserver keyserver.ubuntu.com 0xcbcb082a1bb943db
-sudo apt-get update
-sudo apt-get install mariadb-server-5.3
-sudo apt-get install libmariadbclient-dev # we need development stuff for gems
-
-# root password: pb_server
-# create the database
-mysql -u root -p < db/setup.sql
+# install rbenv
+git clone https://github.com/sstephenson/rbenv.git ~/.rbenv
+echo 'export PATH="$HOME/.rbenv/bin:$PATH"' >> ~/.bash_profile
+git clone https://github.com/sstephenson/ruby-build.git ~/.rbenv/plugins/ruby-build
 
 # install binaries
-sudo apt-get install pdftk imagemagick graphicsmagick
+sudo apt-get install pdftk imagemagick graphicsmagick exiv2 postgresql libpq-dev
 
-#install weird debug gems, this gist only works for ruby 1.9.3p125 on rvm
-bash < <(curl -L https://raw.github.com/gist/1880767)
+# setup environment variables
+cp /media/psf/Home/pookio_env.sh ~
+source ~/pookio_env.sh
 
 cd ~/pb/pb_server
+rbenv install
+# edit .bashrc, restart shell
+rbenv rehash
 bundle install
+rake db:create_user
 rake db:migrate
 rake test:functional
