@@ -1,7 +1,7 @@
 .loadpath
 .project
 .bundle
-chromium_profile/Default/Cache/f*
-chromium_profile/Default/*
+profile
 bin/linux
-bin/*.tar.gz
+bin/mac
+*.tar.gz

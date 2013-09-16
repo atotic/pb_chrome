@@ -1,35 +1,11 @@
 require 'rake'
+require 'fileutils'
 require 'rake/testtask'
 require_relative '../pb_server/config/settings'
 
+RAKE_DIR = File.dirname(__FILE__)
+
 namespace :chrome do
-	desc "Resets chrome profile"
-	task :reset do
-		puts `git reset --hard HEAD`
-		Rake::Task[:'chrome:update_pdf_saver'].execute
-		Rake::Task[:'chrome:update_daemon_paths'].execute
-	end
-
-	desc "Updates the extension location in chrome preferences"
-	task :update_pdf_saver do
-		pref_file = './chromium_profile/Default/Preferences'
-		script = IO.read(pref_file)
-		new_path = File.join(File.dirname(__FILE__), 'pdf_saver_extension/extension')
-		script.gsub!(/\/Users\/atotic\/code\/pb_chrome\/pdf_saver_extension\/extension/, new_path)
-		File.open(pref_file, 'w', 0755) {|f| f << script }
-		puts 'pdf_saver_extension path updated'
-	end
-
-	desc "Updates paths in chrome_daemon.sh "
-	task :update_daemon_paths do
-		script_path = 'bin/linux_64/chrome_daemon.sh'
-		script = IO.read(script_path)
-		script.sub!(/^LOGDIR=(.*)$/, "LOGDIR=#{SvegSettings.chrome_log_dir}")
-		script.sub!(/^CHROME_BIN=(.*)$/, "CHROME_BIN=#{SvegSettings.chrome_binary}")
-		script.sub!(/^CHROME_PROFILE=(.*)$/, "CHROME_PROFILE=#{SvegSettings.chrome_profile_dir}")
-		File.open('bin/linux_64/chrome_daemon.sh', 'w', 0755) { |f| f << script}
-		puts 'chrome_daemon.sh updated'
-	end
 
 	desc "Download binaries"
 	task :download_binaries do
@@ -42,4 +18,33 @@ namespace :chrome do
 		# Wynn Netherland
 		# Developer, GitHub
 	end
+
+	desc "Package binary"
+	task :package_binary do
+		# should do something here
+		home_dir=File.expand_path("~")
+		pb_chrome_dir=File.dirname(__FILE__)
+		case (SvegSettings.platform)
+		when :mac
+			dest_dir = File.join(pb_chrome_dir, "bin", "mac")
+			dest_tar = File.join(pb_chrome_dir, "chrome.mac.tar.gz")
+			src_dir = File.join(home_dir, "chromium", "src", "out", "Release")
+			abort "Chromium binary does not exist #{src_dir}" unless File.exists? src_dir
+			FileUtils.rm_rf( dest_dir )
+			FileUtils.mkdir_p( dest_dir )
+			FileUtils.cp_r( File.join(src_dir, "Chromium.app"), dest_dir)
+			`pushd #{dest_dir}; tar cvzf #{dest_tar} *; popd`
+			puts "binary archive created"
+		when :linux
+			dest_dir = File.join( pb_chrome_dir, "bin" "linux")
+			dest_tar = File.join( pb_chrome_dir, "chrome.linux.tar.gz")
+			src_dir = File.join(home_dir, "chromium", "src", "out", "Release")
+			abort "Chromium binary does not exist #{src_dir}" unless File.exists? src_dir
+			FileUtils.rm_rf( dest_dir )
+			FileUtils.mkdir_p( dest_dir )
+			['chrome', 'chrome.pak', 'chrome_100_percent.pak', 'resources.pak', 'locales'].each { |f| FileUtils.cp_r(f, dest_dir ) }
+			`pushd #{dest_dir}; tar cvzf chrome.linux.tar.gz *; popd`
+		end
+	end
+
 end
