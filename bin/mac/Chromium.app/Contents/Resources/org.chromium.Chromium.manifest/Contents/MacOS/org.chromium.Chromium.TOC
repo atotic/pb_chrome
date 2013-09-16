@@ -1,6 +1,0 @@
-          cmd LC_ID_DYLIB
-      cmdsize 92
-         name org.chromium.Chromium.manifest/Contents/MacOS/org.chromium.Chromium (offset 24)
-   time stamp 1 Wed Dec 31 16:00:01 1969
-      current version 0.0.0
-compatibility version 0.0.0

@@ -1,9 +1,0 @@
-          cmd LC_ID_DYLIB
-      cmdsize 96
-         name ppGoogleNaClPluginChrome.plugin/Contents/MacOS/ppGoogleNaClPluginChrome (offset 24)
-   time stamp 1 Wed Dec 31 16:00:01 1969
-      current version 0.0.0
-compatibility version 0.0.0
-_PPP_GetInterface T
-_PPP_InitializeModule T
-_PPP_ShutdownModule T
