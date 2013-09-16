@@ -36,14 +36,21 @@ namespace :chrome do
 			`pushd #{dest_dir}; tar cvzf #{dest_tar} *; popd`
 			puts "binary archive created"
 		when :linux
-			dest_dir = File.join( pb_chrome_dir, "bin" "linux")
+			dest_dir = File.join( pb_chrome_dir, "bin", "linux")
 			dest_tar = File.join( pb_chrome_dir, "chrome.linux.tar.gz")
 			src_dir = File.join(home_dir, "chromium", "src", "out", "Release")
 			abort "Chromium binary does not exist #{src_dir}" unless File.exists? src_dir
 			FileUtils.rm_rf( dest_dir )
 			FileUtils.mkdir_p( dest_dir )
-			['chrome', 'chrome.pak', 'chrome_100_percent.pak', 'resources.pak', 'locales'].each { |f| FileUtils.cp_r(f, dest_dir ) }
-			`pushd #{dest_dir}; tar cvzf chrome.linux.tar.gz *; popd`
+			['chrome', 'chrome.pak', 'chrome_100_percent.pak', 'resources.pak', 'locales'].each do |f| 
+				file = File.join( src_dir, f)
+				puts file
+				FileUtils.cp_r(file, dest_dir )
+			end
+			pwd = Dir.pwd
+			Dir.chdir(dest_dir)
+			`tar cvzf #{dest_tar} *`
+			Dir.chdir(pwd)
 		end
 	end
 
