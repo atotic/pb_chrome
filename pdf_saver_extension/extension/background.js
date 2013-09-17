@@ -42,19 +42,17 @@ BookConversion.prototype = {
 	windowId: null,
 	tabId: null,
 	startTime: 0,
-	closeTab: false,
 	start: function() {
 		this.startTime = Date.now();
 		this.getWindow();
-		this.closeTab = true;
 	},
-	startInTab: function(tabId) {
+	startInWindow: function(windowId) {
 		this.startTime = Date.now();
-		var THIS = this;
-		this.closeTab = false;
-		chrome.tabs.update(tabId, { url: getPdfConverterUrl() }, function() {
-			THIS.didCreateTab(tabId);
-		});
+		this.didGetWindow(windowId);
+		// var THIS = this;
+		// chrome.tabs.update(tabId, { url: getPdfConverterUrl() }, function() {
+		// 	THIS.didCreateTab(tabId);
+		// });
 	},
 	waitForTabToLoad: function(nextAction) {
 		var THIS = this;
@@ -78,6 +76,23 @@ BookConversion.prototype = {
 	},
 	didGetWindow: function(id) {
 		this.windowId = id;
+		this.startPDFConversion();
+//		this.createTab();
+	},
+	startPDFConversion: function() {
+		this.pageList = this.bookJson.document.pageList.slice();
+		this.convertNextPage();
+	},
+	convertNextPage: function() {
+		if (this.tabId) {
+			chrome.tabs.remove(this.tabId);
+			this.tabId = null;
+		}
+		if (this.pageList.length == 0) {
+			this.didPDFConversion();
+			return;
+		}
+		this.pageId = this.pageList.shift();
 		this.createTab();
 	},
 	createTab: function() {
@@ -103,18 +118,9 @@ BookConversion.prototype = {
 		});
 	},
 	didLoadBook: function(message) {
-		this.startPDFConversion();
+		this.showPage();
 	},
-	startPDFConversion: function() {
-		this.pageList = this.bookJson.document.pageList.slice();
-		this.convertNextPage();
-	},
-	convertNextPage: function() {
-		if (this.pageList.length == 0) {
-			this.didPDFConversion();
-			return;
-		}
-		this.pageId = this.pageList.shift();
+	showPage: function() {
 		chrome.tabs.sendMessage(this.tabId, {
 			action: 'showPage',
 			pageId: this.pageId
@@ -168,6 +174,7 @@ BookConversion.prototype = {
 		xhr.send(fd);
 	},
 	didPdfResultToServer: function() {
+		var THIS = this;
 		this.convertNextPage();
 	},
 	// didSaveAsPDF: function(blob) {
@@ -235,8 +242,6 @@ BookConversion.prototype = {
 
 		xhr.open("POST", url, true);
 		xhr.send(formData);
-		if (this.closeTab && this.tabId)
-			chrome.tabs.remove(this.tabId);
 		currentConversion = null;
 	}
 }
@@ -395,7 +400,7 @@ function testWork(tab) {
 		if (xhr.status == 200) {
 			var task = JSON.parse(xhr.responseText);
 			var c = new BookConversion(task.book_json, task.task_id);
-			c.startInTab(tabId);
+			c.startInWindow(tab.windowId);
 		}
 		else if (xhr.status == 204)
 			;

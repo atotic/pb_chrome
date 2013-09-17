@@ -43,3 +43,13 @@ http://git.chromium.org/gitweb/?p=external/skia.git;a=commitdiff;h=4811286588d42
 
 Implementing PDF compression in Chrome, should land any day now, I am on cc
 https://code.google.com/p/skia/issues/detail?id=194
+
+
+Chrome hacking:
+
+Getting PID of current process
+	base::ProcessHandle current = base::GetCurrentProcessHandle();
+	std::stringstream ss;
+	ss << current;
+Break into debugger
+	DCHECK(false);
